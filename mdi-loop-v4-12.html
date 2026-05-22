@@ -1,0 +1,3437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#050810">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>MDI Loop v4 — Adaptive Closed Loop System</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700;900&family=Barlow+Condensed:wght@400;700;900&display=swap');
+:root{
+  --bg:#050810;--s1:#0a0f1e;--s2:#0f1628;--s3:#162035;
+  --b1:#1a2840;--b2:#1f3050;
+  --g:#00e5b0;--g2:#00b589;--g3:#007a5e;
+  --w:#ffaa00;--d:#ff4757;--lo:#ff6b35;--pu:#a78bfa;--bl:#38bdf8;
+  --tx:#dce8f5;--mu:#4a6080;--mu2:#2d4060;
+  --mono:'Share Tech Mono',monospace;
+  --body:'Barlow',sans-serif;
+  --cond:'Barlow Condensed',sans-serif;
+  --r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--tx);font-family:var(--body);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse 60% 40% at 20% 10%,rgba(0,229,176,.04),transparent 50%),
+  radial-gradient(ellipse 40% 60% at 80% 80%,rgba(167,139,250,.03),transparent 50%),
+  linear-gradient(rgba(0,229,176,.018) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(0,229,176,.018) 1px,transparent 1px);
+  background-size:100% 100%,100% 100%,44px 44px,44px 44px;
+  pointer-events:none;z-index:0;}
+.app{max-width:880px;margin:0 auto;padding:10px 11px 100px;position:relative;z-index:1;}
+
+/* HEADER */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:8px 0 14px;}
+.hdr-l{display:flex;align-items:center;gap:10px;}
+.hdr-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--g),var(--g3));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 24px rgba(0,229,176,.3);}
+.hdr-name{font-family:var(--cond);font-size:30px;font-weight:900;letter-spacing:3px;color:var(--g);line-height:1;}
+.hdr-sub{font-family:var(--mono);font-size:8px;color:var(--mu);letter-spacing:2px;text-transform:uppercase;}
+.loop-badge{display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--b1);border-radius:99px;padding:5px 12px;font-family:var(--mono);font-size:9px;}
+.ldot{width:7px;height:7px;border-radius:50%;background:var(--mu);}
+.ldot.on{background:var(--g);animation:glow 2s infinite;}
+@keyframes glow{0%,100%{box-shadow:0 0 4px var(--g)}50%{box-shadow:0 0 12px var(--g),0 0 24px rgba(0,229,176,.3)}}
+
+/* CGM HERO */
+.cgm-hero{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:16px;margin-bottom:8px;position:relative;overflow:hidden;}
+.cgm-hero::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--g),transparent);opacity:.5;}
+.cgm-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px;}
+.cgm-val{font-family:var(--cond);font-size:96px;font-weight:900;line-height:.9;letter-spacing:-2px;transition:color .4s;}
+.cgm-val.ok{color:var(--g)}.cgm-val.warn{color:var(--w)}.cgm-val.hi{color:var(--d)}.cgm-val.lo{color:var(--lo)}
+.cgm-right{text-align:right;}
+.cgm-arrow{font-size:32px;line-height:1;}
+.cgm-roc{font-family:var(--mono);font-size:18px;font-weight:700;}
+.cgm-age{font-family:var(--mono);font-size:9px;color:var(--mu);margin-top:2px;}
+canvas#spark{width:100%;height:56px;display:block;}
+.pred-row{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none;}
+.pred-row::-webkit-scrollbar{display:none;}
+.pred-chip{flex-shrink:0;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:5px 9px;text-align:center;min-width:52px;}
+.pred-t{font-family:var(--mono);font-size:8px;color:var(--mu);}
+.pred-v{font-family:var(--mono);font-size:15px;font-weight:700;}
+.pred-v.ok{color:var(--g)}.pred-v.warn{color:var(--w)}.pred-v.hi{color:var(--d)}.pred-v.lo{color:var(--lo)}
+
+/* INSULIN FLOW PANEL */
+.insulin-flow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.iflow-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:12px 14px;}
+.iflow-title{font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.iflow-title::before{content:'';width:3px;height:9px;background:var(--g);border-radius:2px;}
+.iflow-rate{font-family:var(--cond);font-size:36px;font-weight:900;letter-spacing:1px;line-height:1;}
+.iflow-label{font-family:var(--mono);font-size:9px;color:var(--mu);margin-top:2px;}
+.iflow-bar{height:5px;background:var(--b1);border-radius:3px;margin-top:8px;overflow:hidden;}
+.iflow-fill{height:100%;border-radius:3px;transition:width .8s ease;}
+.dose-stack{margin-top:6px;}
+.dose-row{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:9px;color:var(--mu);padding:2px 0;border-bottom:1px solid var(--b1);}
+.dose-row:last-child{border:none;}
+.dose-row .dv{color:var(--tx);}
+
+/* ALERT BANNER */
+.alert-banner{border-radius:var(--r);padding:12px 14px;margin-bottom:8px;border-left:4px solid;display:flex;gap:10px;align-items:flex-start;animation:slideIn .3s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.alert-banner.ok{background:rgba(0,229,176,.06);border-color:var(--g);}
+.alert-banner.warn{background:rgba(255,170,0,.07);border-color:var(--w);}
+.alert-banner.danger{background:rgba(255,71,87,.08);border-color:var(--d);}
+.alert-banner.info{background:rgba(167,139,250,.07);border-color:var(--pu);}
+.alert-banner.topup{background:rgba(167,139,250,.1);border-color:var(--pu);}
+.ab-icon{font-size:18px;flex-shrink:0;}
+.ab-body{flex:1;}
+.ab-title{font-family:var(--cond);font-size:16px;font-weight:700;letter-spacing:.5px;}
+.ab-msg{font-size:12px;color:var(--tx);opacity:.85;margin-top:2px;line-height:1.6;}
+.ab-dose{font-family:var(--cond);font-size:48px;font-weight:900;color:var(--pu);letter-spacing:2px;line-height:1;margin:4px 0;}
+.ab-btn{margin-top:8px;display:inline-flex;gap:8px;}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:8px;}
+.stat{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:9px 11px;}
+.stat .sl{font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mu);margin-bottom:3px;}
+.stat .sv{font-family:var(--mono);font-size:17px;font-weight:700;}
+
+/* NAV */
+.nav{display:flex;gap:2px;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:3px;margin-bottom:10px;overflow-x:auto;scrollbar-width:none;}
+.nav::-webkit-scrollbar{display:none;}
+.tab{flex:1;min-width:48px;padding:7px 4px;background:none;border:none;color:var(--mu);font-family:var(--body);font-size:9px;font-weight:700;cursor:pointer;border-radius:8px;transition:all .2s;white-space:nowrap;letter-spacing:.3px;}
+.tab.active{background:var(--s2);color:var(--g);border:1px solid var(--b2);}
+.panel{display:none;}.panel.active{display:block;}
+
+/* CARDS */
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:13px 15px;margin-bottom:9px;}
+.ctitle{font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:11px;display:flex;align-items:center;gap:7px;}
+.ctitle::before{content:'';width:3px;height:9px;background:var(--g);border-radius:2px;}
+
+/* FORMS */
+.row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px;}
+.row.r3{grid-template-columns:1fr 1fr 1fr;}
+.row.r1{grid-template-columns:1fr;}
+.field{display:flex;flex-direction:column;gap:3px;}
+label{font-size:9px;color:var(--mu);font-family:var(--mono);}
+input[type=number],input[type=text],input[type=time],select,textarea{
+  background:var(--s2);border:1px solid var(--b1);border-radius:8px;
+  color:var(--tx);font-family:var(--mono);font-size:13px;
+  padding:7px 9px;width:100%;transition:border-color .2s;
+  appearance:none;resize:none;}
+input:focus,select:focus{outline:none;border-color:var(--g);}
+input::placeholder,textarea::placeholder{color:var(--mu);}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%234a6080' d='M5 7L1 3h8z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;padding-right:26px;}
+
+/* BUTTONS */
+.btn{width:100%;padding:11px;background:linear-gradient(135deg,var(--g),var(--g2));border:none;border-radius:var(--r);color:#001a10;font-family:var(--body);font-size:13px;font-weight:700;cursor:pointer;transition:transform .15s,box-shadow .15s;margin-top:5px;}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,229,176,.22);}
+.btn.sec{background:var(--s2);border:1px solid var(--b1);color:var(--tx);font-size:11px;padding:8px;}
+.btn.sec:hover{border-color:var(--g);color:var(--g);box-shadow:none;transform:none;}
+.btn.pu{background:linear-gradient(135deg,var(--pu),#6d5fcf);color:#fff;}
+.btn.wa{background:linear-gradient(135deg,var(--w),#c87800);color:#1a0e00;}
+.btn.da{background:linear-gradient(135deg,var(--d),#b82030);color:#fff;}
+.btn-sm{width:auto;display:inline-block;padding:6px 14px;font-size:11px;margin-top:0;}
+
+/* RESULT */
+.result-hero{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:16px;text-align:center;margin-bottom:9px;}
+.result-dose{font-family:var(--cond);font-size:80px;font-weight:900;color:var(--g);letter-spacing:2px;line-height:1;}
+.result-sub{font-family:var(--mono);font-size:9px;color:var(--mu);margin-top:2px;}
+
+/* BREAKDOWN */
+.breakdown{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px;}
+.bitem{background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:9px 11px;}
+.bl{font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--mu);text-transform:uppercase;margin-bottom:3px;}
+.bv{font-family:var(--mono);font-size:17px;font-weight:700;}
+.bv.pos{color:var(--w)}.bv.neg{color:var(--g)}.bv.pu{color:var(--pu)}
+
+/* SPLIT VISUAL */
+.split-visual{background:var(--s2);border:1px solid rgba(167,139,250,.3);border-radius:var(--r);padding:14px;margin-bottom:9px;}
+.split-timeline{display:flex;align-items:center;gap:0;margin:12px 0;position:relative;}
+.split-timeline::before{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background:var(--b2);z-index:0;}
+.split-point{display:flex;flex-direction:column;align-items:center;gap:4px;z-index:1;flex:1;}
+.split-dot{width:14px;height:14px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;background:var(--bg);}
+.split-dot.now{border-color:var(--g);box-shadow:0 0 8px var(--g);}
+.split-dot.d2{border-color:var(--pu);box-shadow:0 0 8px var(--pu);}
+.split-dot.d3{border-color:var(--w);box-shadow:0 0 8px var(--w);}
+.split-label{font-family:var(--mono);font-size:8px;color:var(--mu);text-align:center;}
+.split-amount{font-family:var(--cond);font-size:20px;font-weight:900;color:var(--tx);}
+
+/* FOOD PHOTO */
+.photo-drop{background:var(--s2);border:2px dashed var(--b2);border-radius:var(--r);padding:20px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:8px;}
+.photo-drop:hover{border-color:var(--g);}
+.photo-drop input{display:none;}
+.photo-preview{width:100%;max-height:200px;object-fit:cover;border-radius:9px;display:none;margin-bottom:8px;}
+
+/* IOB BARS */
+.iob-stacks{margin-top:8px;}
+.iob-stack-row{margin-bottom:6px;}
+.iob-stack-label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--mu);margin-bottom:3px;}
+.iob-track{height:7px;background:var(--b1);border-radius:4px;overflow:hidden;}
+.iob-fill{height:100%;border-radius:4px;transition:width 1s ease;}
+
+/* WALK LOG */
+.walk-entry{background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:9px 12px;margin-bottom:6px;font-size:12px;}
+.walk-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+
+/* LOG ENTRIES */
+.log-entry{background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:9px 12px;margin-bottom:6px;}
+.log-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.log-ttl{font-size:12px;font-weight:600;}
+.log-dose{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--g);}
+.log-meta{font-family:var(--mono);font-size:9px;color:var(--mu);}
+.oc-btn{font-size:9px;font-family:var(--mono);padding:3px 9px;background:var(--s1);border:1px solid var(--b1);border-radius:99px;cursor:pointer;margin-right:3px;color:var(--mu);transition:all .2s;}
+.oc-btn:hover,.oc-btn.sel{border-color:var(--g);color:var(--g);}
+.oc-btn.hi.sel{border-color:var(--d);color:var(--d);}
+.oc-btn.lo.sel{border-color:var(--lo);color:var(--lo);}
+
+/* AI BOX */
+.ai-box{background:var(--s2);border:1px solid rgba(0,229,176,.15);border-radius:9px;padding:12px;font-size:12px;line-height:1.75;color:var(--tx);margin-bottom:9px;}
+.ai-box.load{display:flex;align-items:center;gap:8px;color:var(--mu);}
+.dots span{display:inline-block;width:4px;height:4px;background:var(--g);border-radius:50%;animation:b 1.2s infinite;}
+.dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+@keyframes b{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
+.ai-lbl{font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--g);text-transform:uppercase;margin-bottom:5px;}
+
+/* POST MEAL TRACKER */
+.pmt-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--b1);font-size:12px;}
+.pmt-row:last-child{border:none;}
+.pmt-time{font-family:var(--mono);font-size:10px;color:var(--mu);min-width:60px;}
+.pmt-bg{font-family:var(--mono);font-size:16px;font-weight:700;min-width:50px;}
+.pmt-delta{font-family:var(--mono);font-size:11px;}
+
+/* TOGGLE */
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--b1);}
+.tog-row:last-child{border:none;}
+.tog-lbl{font-size:12px;font-weight:600;}.tog-sub{font-size:9px;color:var(--mu);margin-top:1px;}
+.tog{position:relative;width:38px;height:20px;flex-shrink:0;}
+.tog input{display:none;}
+.tsl{position:absolute;inset:0;background:var(--b1);border-radius:10px;cursor:pointer;transition:.2s;}
+.tsl::before{content:'';position:absolute;left:3px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s;}
+.tog input:checked+.tsl{background:var(--g);}
+.tog input:checked+.tsl::before{transform:translateX(17px);}
+
+/* PROG */
+.prog{margin:5px 0;}
+.prog-lbl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--mu);margin-bottom:3px;}
+.prog-track{height:6px;background:var(--b1);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;transition:width .6s;}
+
+/* TIMER */
+.split-timer{background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.3);border-radius:var(--r);padding:14px;text-align:center;margin-bottom:9px;}
+.timer-clock{font-family:var(--cond);font-size:52px;font-weight:900;color:var(--pu);letter-spacing:3px;}
+
+/* NOTIF */
+#notif-overlay{position:fixed;inset:0;background:rgba(5,8,16,.97);z-index:1000;display:none;align-items:center;justify-content:center;flex-direction:column;padding:20px;text-align:center;}
+.nring{width:80px;height:80px;border-radius:50%;background:rgba(167,139,250,.15);border:2px solid var(--pu);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 14px;animation:ring 1s infinite;}
+@keyframes ring{0%,100%{transform:scale(1)}50%{transform:scale(1.08);box-shadow:0 0 20px rgba(167,139,250,.4)}}
+
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--g);color:#001a10;font-family:var(--mono);font-size:11px;padding:7px 18px;border-radius:99px;opacity:0;transition:all .3s;z-index:999;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+.disclaimer{background:rgba(255,71,87,.04);border:1px solid rgba(255,71,87,.1);border-radius:9px;padding:10px 13px;font-size:10px;color:var(--mu);line-height:1.6;text-align:center;margin-top:14px;}
+#setsaved{text-align:center;color:var(--g);font-size:10px;font-family:var(--mono);margin-top:7px;display:none;}
+
+/* POST MEAL MONITOR BADGE */
+.pmm-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,229,176,.08);border:1px solid rgba(0,229,176,.25);border-radius:99px;padding:3px 10px;font-family:var(--mono);font-size:9px;color:var(--g);}
+.pmm-dot{width:5px;height:5px;border-radius:50%;background:var(--g);animation:glow 1.5s infinite;}
+
+@media(max-width:600px){
+  .stats-row{grid-template-columns:1fr 1fr;}
+  .insulin-flow{grid-template-columns:1fr;}
+  .row.r3{grid-template-columns:1fr 1fr;}
+  .cgm-val{font-size:72px;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-l">
+    <div class="hdr-icon">🔄</div>
+    <div>
+      <div class="hdr-name">MDI LOOP</div>
+      <div class="hdr-sub">Adaptive Closed Loop · v4.1 · Auto-Connect</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button onclick="openSettings()" style="background:var(--g);border:none;border-radius:8px;color:#001a10;font-family:var(--body);font-size:12px;font-weight:700;padding:8px 14px;cursor:pointer">⚙️ Setup</button>
+    <div class="loop-badge"><div class="ldot" id="ldot"></div><span id="lstat">Connecting…</span></div>
+  </div>
+</div>
+
+
+
+<div class="disclaimer">⚠ <strong>Medical Disclaimer:</strong> Advisory tool only — not a medical device. Does not replace your endocrinologist or a certified insulin pump. Always verify doses. Never ignore hypoglycaemia.</div>
+
+<!-- ALWAYS VISIBLE SETTINGS BUTTON -->
+<div id="settings-shortcut" style="position:fixed;bottom:20px;right:16px;z-index:500;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+  <button onclick="openSettingsDirectly()" style="background:var(--s2);border:1px solid var(--b2);border-radius:99px;color:var(--text);font-family:var(--body);font-size:12px;font-weight:600;padding:10px 16px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.4);display:flex;align-items:center;gap:6px">
+    ⚙️ Settings
+  </button>
+</div>
+</div>
+
+<!-- SPLIT DOSE NOTIFICATION -->
+<div id="notif-overlay">
+  <div class="nring">💉</div>
+  <h2 style="font-size:22px;font-weight:800;margin-bottom:8px" id="notif-title">Dose Due</h2>
+  <div id="notif-msg" style="font-size:13px;color:var(--mu);margin-bottom:20px;line-height:1.65;max-width:320px"></div>
+  <button class="btn" style="max-width:300px" onclick="dismissNotif()">✓ Injected — Dismiss</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ================================================================
+// MDI LOOP v4 — COMPLETE ADAPTIVE CLOSED LOOP ENGINE
+// Parameters 1-9 fully implemented
+// ================================================================
+
+// ---- PERSISTENT STORE ----
+const ST={get(k){try{return JSON.parse(localStorage.getItem('m4_'+k))||null;}catch{return null;}},set(k,v){try{localStorage.setItem('m4_'+k,JSON.stringify(v));}catch{}}};
+
+// ---- SETTINGS ----
+let S=ST.get('s')||{icr:8,isf:27,target:100,ctarget:130,base:9,max:18,dbasal:37,dbolus:27,learn:true,topup:true,split:true,pmm:true,lockout:true,walklearn:true,basalAM:21,basalAMt:'05:30',basalPM:16,basalPMt:'17:30'};
+
+// ---- DATA STORES ----
+const _savedFoods = ST.get('foods'); const _foodVersion = ST.get('foodver'); let foodDB = (_savedFoods && _foodVersion === 2) ? _savedFoods : (()=>{ const df=defaultFoods(); ST.set('foods',df); ST.set('foodver',2); return df; })();
+let doseLog  = ST.get('log')      || [];
+let corrLog  = ST.get('corrlog')  || [];
+let patterns = ST.get('pat')      || {}; // per-food learning
+let bgHist   = ST.get('bgh')      || []; // {bg, ts}
+let tresList = ST.get('tres')     || []; // Tresiba injections
+let walkLog  = ST.get('walks')    || [];
+let walkLearning = ST.get('wlearn') || {}; // {type: {sessions,avgDropPerMin}}
+let pmmActive    = ST.get('pmma')  || null; // active post-meal monitor
+let basalLog = ST.get('bsl')      || [];
+let photoData = null;
+let selectedFood = null;
+let splitTimer = null;
+let nsInterval = null;
+let pmmInterval = null;
+let lastTopupAlert = 0;
+
+// ---- UTILS ----
+const $=id=>document.getElementById(id);
+const num=(id,fb=0)=>parseFloat($(id)?.value)||fb;
+const rnd=(v,d=1)=>Math.round(v*10**d)/10**d;
+const uid=()=>'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const now=()=>Date.now();
+const toISO=()=>new Date().toISOString();
+const hrsAgo=(ts)=>(now()-new Date(ts).getTime())/3600000;
+function toast(m,d=2500){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function alrt(id,type,icon,html){$(id).innerHTML+=`<div class="alert-banner ${type}"><div class="ab-icon">${icon}</div><div class="ab-body">${html}</div></div>`;}
+function goTab(n,btn){
+  try{
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    const panel = $('panel-'+n);
+    if(!panel){ console.warn('Panel not found:',n); return; }
+    panel.classList.add('active');
+    if(btn) btn.classList.add('active');
+    if(n==='food') renderFoodDB();
+    else if(n==='log') renderLog();
+    else if(n==='learn'){ renderPatterns(); renderPMealLibrary(); }
+    else if(n==='tir') renderTIR();
+    else if(n==='tresiba') renderTresibaPanel();
+    else if(n==='walk'){ renderWalkLog(); renderWalkLearning(); }
+    else if(n==='topup') renderCorrHistory();
+    else if(n==='settings'){
+      // Load saved values into settings form
+      if($('s-icr')) $('s-icr').value=S.icr||8;
+      if($('s-isf')) $('s-isf').value=S.isf||27;
+      if($('s-target')) $('s-target').value=S.target||100;
+      if($('s-ctarget')) $('s-ctarget').value=S.ctarget||130;
+      if($('s-base')) $('s-base').value=S.base||9;
+      if($('s-max')) $('s-max').value=S.max||18;
+      if($('s-dbasal')) $('s-dbasal').value=S.dbasal||37;
+      if($('s-dbolus')) $('s-dbolus').value=S.dbolus||27;
+      if($('s-bam')) $('s-bam').value=S.basalAM||21;
+      if($('s-bam-t')) $('s-bam-t').value=S.basalAMt||'05:30';
+      if($('s-bpm')) $('s-bpm').value=S.basalPM||16;
+      if($('s-bpm-t')) $('s-bpm-t').value=S.basalPMt||'17:30';
+      if($('s-email')) $('s-email').value=S.alertEmail||'arundayal@gmail.com';
+      if($('s-whatsapp')) $('s-whatsapp').value=S.alertWhatsApp||'';
+      const savedUrl=localStorage.getItem('m4_nsurl');
+      const savedToken=localStorage.getItem('m4_nstoken');
+      if(savedUrl&&$('ns-url')) $('ns-url').value=savedUrl;
+      if(savedToken&&$('ns-token')) $('ns-token').value=savedToken;
+      updateTDDCalc();
+    }
+  }catch(e){ console.error('goTab error:',e); }
+}
+
+// ================================================================
+// PARAMETER 3 — TRESIBA PHARMACOKINETIC MODEL v2
+// Based on patient's own body response (gap felt at 8-9hrs after missed dose)
+//
+// PHASES for each injection:
+// Onset:    T+0  → T+1h   — depot forming, no effect
+// Building: T+1  → T+12h  — 10% of dose, gradually increasing
+//           Rate = dose×0.10÷11 × linear_scale U/hr
+// Peak:     T+12 → T+26h  — 65% of dose over 14 hours
+//           Rate = dose×0.65÷14 U/hr (constant)
+// Declining:T+26 → T+42h  — 25% of dose over 16 hours
+//           Rate = dose×0.25÷16 U/hr (constant)
+// Expired:  T+42h+ — zero
+//
+// For 21U:
+//   Building avg: 0.191 U/hr | Peak: 0.975 U/hr | Declining: 0.328 U/hr
+// For 16U:
+//   Building avg: 0.145 U/hr | Peak: 0.743 U/hr | Declining: 0.250 U/hr
+// ================================================================
+
+function getTresibaPhase(hrs){
+  if(hrs < 1)  return 'onset';
+  if(hrs < 12) return 'building';
+  if(hrs < 26) return 'peak';
+  if(hrs < 42) return 'declining';
+  return 'expired';
+}
+
+function getTresibaRate(dose, hrs){
+  // Returns current U/hr for a single injection
+  if(hrs < 1)  return 0; // onset
+  if(hrs < 12){
+    // Building: linear ramp from 0 to peak rate
+    // Total 10% of dose over 11 hours, linearly increasing
+    const buildPeakRate = (dose * 0.10) / 11 * 2; // peak of ramp
+    const progress = (hrs - 1) / 11; // 0 to 1
+    return rnd(buildPeakRate * progress, 4);
+  }
+  if(hrs < 26) return rnd((dose * 0.65) / 14, 4); // peak
+  if(hrs < 42) return rnd((dose * 0.25) / 16, 4); // declining
+  return 0; // expired
+}
+
+function getTresibaRemaining(dose, hrs){
+  // Returns remaining insulin U for a single injection
+  if(hrs <= 1)  return dose;
+  if(hrs < 12){
+    // Building: delivered = area under linear ramp so far
+    const progress = (hrs - 1) / 11;
+    const delivered = dose * 0.10 * progress * progress; // quadratic delivery
+    return rnd(dose - delivered, 2);
+  }
+  if(hrs < 26){
+    const buildDelivered = dose * 0.10;
+    const peakDelivered = (dose * 0.65 / 14) * (hrs - 12);
+    return rnd(dose - buildDelivered - peakDelivered, 2);
+  }
+  if(hrs < 42){
+    const peakDecDelivered = dose * 0.75;
+    const declDelivered = (dose * 0.25 / 16) * (hrs - 26);
+    return rnd(Math.max(0, dose - peakDecDelivered - declDelivered), 2);
+  }
+  return 0;
+}
+
+function calcTresibaRate(){
+  const now_h = now();
+  let totalRate = 0;
+  let activeDoses = [];
+
+  tresList.forEach(d=>{
+    const hrs = (now_h - new Date(d.ts).getTime()) / 3600000;
+    const phase = getTresibaPhase(hrs);
+    if(phase === 'expired') return;
+
+    const rate = getTresibaRate(d.dose, hrs);
+    const remain = getTresibaRemaining(d.dose, hrs);
+    const hrsLeft = rnd(Math.max(0, 42 - hrs), 1);
+    totalRate += rate;
+
+    let phaseLabel = '';
+    let phasePct = 0;
+    if(phase === 'onset'){
+      phaseLabel = '⏳ Onset — active in '+rnd((1-hrs)*60,0)+'min';
+      phasePct = 0;
+    } else if(phase === 'building'){
+      phaseLabel = '📈 Building (1–12h)';
+      phasePct = Math.round(((hrs-1)/11)*100);
+    } else if(phase === 'peak'){
+      phaseLabel = '🔥 Peak (12–26h)';
+      phasePct = Math.round(((hrs-12)/14)*100);
+    } else if(phase === 'declining'){
+      phaseLabel = '📉 Declining (26–42h)';
+      phasePct = Math.round(((hrs-26)/16)*100);
+    }
+
+    activeDoses.push({
+      id: d.id,
+      dose: d.dose,
+      ts: d.ts,
+      hrs: rnd(hrs,1),
+      phase,
+      phaseLabel,
+      phasePct,
+      rate: rnd(rate,3),
+      remain: rnd(remain,1),
+      hrsLeft,
+      per15min: rnd(rate/4, 3),
+      per5min: rnd(rate/12, 3)
+    });
+  });
+
+  return {totalRate: rnd(totalRate, 3), activeDoses};
+}
+
+function calcTresibaRemaining(){
+  return rnd(tresList.reduce((total, d)=>{
+    const hrs = hrsAgo(d.ts);
+    return total + getTresibaRemaining(d.dose, hrs);
+  }, 0), 1);
+}
+
+// ================================================================
+// TRESIBA MISSED DOSE DETECTION + ALERT
+// Gap felt at 8-9 hours after missed dose (patient confirmed)
+// Alert levels: +4h warning, +6h alert, +8h critical+email+whatsapp
+// ================================================================
+let _lastMissedAlert = {am:0, pm:0};
+
+function checkTresibaMissed(){
+  const nowMs = now();
+  const today = new Date();
+
+  // Check AM dose
+  const amParts = (S.basalAMt||'05:30').split(':');
+  const expectedAM = new Date(today);
+  expectedAM.setHours(parseInt(amParts[0]), parseInt(amParts[1]), 0, 0);
+  if(expectedAM > nowMs) expectedAM.setDate(expectedAM.getDate()-1);
+
+  // Check PM dose
+  const pmParts = (S.basalPMt||'17:30').split(':');
+  const expectedPM = new Date(today);
+  expectedPM.setHours(parseInt(pmParts[0]), parseInt(pmParts[1]), 0, 0);
+  if(expectedPM > nowMs) expectedPM.setDate(expectedPM.getDate()-1);
+
+  // Find last logged AM and PM doses
+  const lastAM = tresList.filter(d=>d.dose===S.basalAM||d.isAM).sort((a,b)=>new Date(b.ts)-new Date(a.ts))[0];
+  const lastPM = tresList.filter(d=>d.dose===S.basalPM&&!d.isAM).sort((a,b)=>new Date(b.ts)-new Date(a.ts))[0];
+
+  // Check if doses are overdue
+  [
+    {label:'Morning', expected:expectedAM, last:lastAM, dose:S.basalAM, key:'am'},
+    {label:'Evening', expected:expectedPM, last:lastPM, dose:S.basalPM, key:'pm'}
+  ].forEach(check=>{
+    const lastTaken = check.last ? new Date(check.last.ts).getTime() : 0;
+    const overdueMs = nowMs - Math.max(check.expected.getTime(), lastTaken);
+    const overdueHrs = overdueMs / 3600000;
+
+    if(overdueHrs > 0 && lastTaken < check.expected.getTime()){
+      // Dose not yet taken for this scheduled time
+      if(overdueHrs >= 8 && (nowMs - _lastMissedAlert[check.key]) > 3600000){
+        // CRITICAL — 8+ hours overdue
+        _lastMissedAlert[check.key] = nowMs;
+        showMissedDoseAlert(check.label, check.dose, rnd(overdueHrs,1), 'critical');
+        sendMissedDoseEmail(check.label, check.dose, rnd(overdueHrs,1));
+        sendWhatsAppAlert(check.label, check.dose, rnd(overdueHrs,1));
+      } else if(overdueHrs >= 6 && (nowMs - _lastMissedAlert[check.key]) > 3600000){
+        showMissedDoseAlert(check.label, check.dose, rnd(overdueHrs,1), 'warning');
+      } else if(overdueHrs >= 4 && (nowMs - _lastMissedAlert[check.key]) > 3600000){
+        showMissedDoseAlert(check.label, check.dose, rnd(overdueHrs,1), 'caution');
+      }
+    }
+  });
+}
+
+function showMissedDoseAlert(label, dose, hrs, level){
+  const colors = {critical:'var(--d)', warning:'var(--w)', caution:'var(--w)'};
+  const icons = {critical:'🚨', warning:'⚠️', caution:'💊'};
+  const titles = {
+    critical:`TRESIBA MISSED — ${label} ${dose}U is ${hrs}h overdue!`,
+    warning:`Tresiba Overdue — ${label} ${dose}U is ${hrs}h late`,
+    caution:`Tresiba Due Soon — ${label} ${dose}U`
+  };
+  const msgs = {
+    critical:`Your BG will start rising now if not corrected. Inject ${dose}U immediately and monitor closely.`,
+    warning:`Please inject your ${label.toLowerCase()} Tresiba (${dose}U) as soon as possible.`,
+    caution:`Your ${label.toLowerCase()} Tresiba (${dose}U) is due. Please inject soon.`
+  };
+
+  // Show on screen
+  const banner = document.createElement('div');
+  banner.className = `alert-banner ${level==='critical'?'danger':'warn'}`;
+  banner.style.cssText = 'position:fixed;top:10px;left:10px;right:10px;z-index:998;animation:slideIn .3s ease';
+  banner.innerHTML = `<div class="ab-icon">${icons[level]}</div><div class="ab-body"><div class="ab-title">${titles[level]}</div><div class="ab-msg">${msgs[level]}</div><button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:var(--mu);cursor:pointer;font-size:10px;margin-top:6px;font-family:var(--mono)">Dismiss</button></div>`;
+  document.body.appendChild(banner);
+  if(level==='critical') playBeep();
+
+  // Push notification
+  notify(`${icons[level]} ${titles[level]}`, msgs[level], 'tresiba-missed-'+label);
+  setTimeout(()=>{ if(banner.parentElement) banner.remove(); }, 30000);
+}
+
+async function sendMissedDoseEmail(label, dose, hrs){
+  const email = S.alertEmail||'arundayal@gmail.com';
+  if(!email) return;
+
+  const bg = bgHist.slice(-1)[0]?.bg||'—';
+  const subject = `🚨 MDI Loop Alert — Tresiba ${label} ${dose}U MISSED (${hrs}h overdue)`;
+  const body = `MDI Loop Closed System Alert
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ TRESIBA DOSE MISSED
+
+Dose: ${label} Tresiba ${dose}U
+Overdue by: ${hrs} hours
+Current BG: ${bg} mg/dL
+Time: ${new Date().toLocaleString()}
+
+Action Required:
+Inject ${dose}U Tresiba immediately.
+Your BG will start rising within the next hour
+if basal coverage is not restored.
+
+Based on your body pattern, BG rises
+approximately 8-9 hours after a missed dose.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MDI Loop Adaptive Closed Loop System
+This is an automated alert.`;
+
+  // Try EmailJS if configured
+  if(S.emailjsKey && S.emailjsService && S.emailjsTemplate){
+    try{
+      await emailjs.send(S.emailjsService, S.emailjsTemplate, {
+        to_email: email,
+        subject: subject,
+        message: body,
+        bg: bg,
+        dose: dose,
+        label: label,
+        hrs: hrs
+      });
+      toast('📧 Alert email sent to '+email);
+      return;
+    }catch(e){ console.log('EmailJS failed:', e); }
+  }
+
+  // Fallback: mailto link
+  const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(mailtoLink, '_blank');
+  toast('📧 Email draft opened — please send');
+}
+
+function sendWhatsAppAlert(label, dose, hrs){
+  const phone = S.alertWhatsApp||S.alertPhone||'';
+  const bg = bgHist.slice(-1)[0]?.bg||'—';
+  const msg = `🚨 *MDI Loop Alert*
+
+*TRESIBA MISSED*
+${label} ${dose}U is ${hrs}h overdue
+Current BG: ${bg} mg/dL
+Time: ${new Date().toLocaleTimeString()}
+
+Inject ${dose}U Tresiba immediately.
+BG will rise within 1 hour without basal coverage.`;
+
+  const waLink = phone
+    ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+    : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+
+  // Open WhatsApp
+  window.open(waLink, '_blank');
+  toast('💬 WhatsApp alert opened');
+}
+
+function updateTresibaDisplay(){
+  const {totalRate, activeDoses} = calcTresibaRate();
+  // Max rate = peak rate of AM dose
+  const maxRate = S.basalAM > 0 ? (S.basalAM * 0.65) / 14 : 1;
+  $('tresiba-rate').textContent = totalRate.toFixed(3);
+  $('tresiba-bar').style.width = Math.min(100, (totalRate/maxRate)*100)+'%';
+  const remain = calcTresibaRemaining();
+  $('tresiba-remain').textContent = `Remaining: ${remain}U · Next 15min: ${rnd(totalRate/4,3)}U · Next 5min: ${rnd(totalRate/12,3)}U`;
+
+  let stackHtml = '';
+  activeDoses.forEach(d=>{
+    const phaseShort = d.phase==='building'?'📈 Build':d.phase==='peak'?'🔥 Peak':d.phase==='declining'?'📉 Tail':'⏳';
+    const color = d.phase==='peak'?'color:var(--g)':d.phase==='building'?'color:var(--bl)':'color:var(--pu)';
+    stackHtml += `<div class="dose-row"><span style="${color}">${d.dose}U (${phaseShort})</span><span class="dv" style="${color}">${d.rate} U/hr</span></div>`;
+  });
+  $('tresiba-stack').innerHTML = stackHtml || '<div style="font-family:var(--mono);font-size:9px;color:var(--mu)">No active doses</div>';
+
+  // Check for missed doses every update
+  checkTresibaMissed();
+}
+
+function logTresiba(){
+  const dose = num('tr-dose');
+  const timeVal = $('tr-time').value || new Date().toTimeString().slice(0,5);
+  if(!dose){alert('Enter dose.');return;}
+  const [h,m] = timeVal.split(':');
+  const ts = new Date();
+  ts.setHours(parseInt(h),parseInt(m),0,0);
+  tresList.push({dose, ts:ts.toISOString(), id:uid()});
+  ST.set('tres', tresList);
+  $('tr-dose').value='';
+  updateTresibaDisplay();
+  renderTresibaPanel();
+  toast('✓ Tresiba logged');
+}
+
+function renderTresibaPanel(){
+  const el = $('tresiba-list');
+  const {activeDoses, totalRate} = calcTresibaRate();
+  if(!activeDoses.length){
+    el.innerHTML='<p style="font-size:12px;color:var(--mu);text-align:center;padding:20px 0">No active Tresiba injections.<br>Log your morning injection above.</p>';
+    $('tresiba-flow-detail').innerHTML='';
+    return;
+  }
+  const active = activeDoses; // use pre-calculated
+
+  el.innerHTML = active.map(d=>{
+    const injTime = new Date(d.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const injDate = new Date(d.ts).toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
+    const phase = d.phaseLabel;
+    const phaseColor = d.phase==='peak'?'var(--g)':d.phase==='building'?'var(--bl)':d.phase==='declining'?'var(--pu)':'var(--mu)';
+    const remain = d.remain;
+    const rate = d.rate;
+    const hoursLeft = d.hrsLeft;
+    const phasePct = d.phasePct;
+    const per15min = d.per15min;
+    const per5min = d.per5min;
+    const totalPct = Math.round((remain/d.dose)*100);
+
+    return `<div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:13px 15px;margin-bottom:9px">
+
+      <!-- Header row -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div>
+          <div style="font-size:15px;font-weight:700">${d.dose}U Tresiba</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--mu);margin-top:2px">Injected ${injTime} · ${injDate}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--g)">${remain}U</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--mu)">remaining</div>
+        </div>
+      </div>
+
+      <!-- Remaining insulin progress bar -->
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--mu);margin-bottom:3px">
+          <span>Insulin Remaining</span>
+          <span>${totalPct}% (${remain}U of ${d.dose}U)</span>
+        </div>
+        <div style="height:10px;background:var(--b1);border-radius:5px;overflow:hidden">
+          <div style="height:100%;width:${totalPct}%;background:linear-gradient(90deg,var(--g),var(--g2));border-radius:5px;transition:width 1s ease"></div>
+        </div>
+      </div>
+
+      <!-- Phase progress bar -->
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:${phaseColor};margin-bottom:3px">
+          <span>${phase}</span>
+          <span>${hrs < 2 ? '' : phasePct + '% through phase'}</span>
+        </div>
+        <div style="height:6px;background:var(--b1);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${phasePct}%;background:${phaseColor};border-radius:3px;transition:width 1s ease;opacity:0.7"></div>
+        </div>
+      </div>
+
+      <!-- Stats grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
+        <div style="background:var(--s1);border-radius:7px;padding:7px;text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-bottom:2px">FLOW NOW</div>
+          <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--g)">${rate}</div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">U/hr</div>
+        </div>
+        <div style="background:var(--s1);border-radius:7px;padding:7px;text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-bottom:2px">NEXT 15MIN</div>
+          <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--g)">${per15min}</div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">U</div>
+        </div>
+        <div style="background:var(--s1);border-radius:7px;padding:7px;text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-bottom:2px">NEXT 5MIN</div>
+          <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--pu)">${per5min}</div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">U</div>
+        </div>
+        <div style="background:var(--s1);border-radius:7px;padding:7px;text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-bottom:2px">HRS LEFT</div>
+          <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--w)">${hoursLeft}</div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">hours</div>
+        </div>
+      </div>
+
+      <!-- Delete button -->
+      <button onclick="deleteTresiba('${d.id}')" style="background:none;border:none;color:var(--mu);cursor:pointer;font-size:10px;font-family:var(--mono);margin-top:8px;padding:0">✕ Remove</button>
+    </div>`;
+  }).join('');
+
+  // Combined flow summary
+  const {totalRate, activeDoses} = calcTresibaRate();
+  const totalRemain = calcTresibaRemaining();
+  $('tresiba-flow-detail').innerHTML=`
+    <div style="background:rgba(0,229,176,.06);border:1px solid rgba(0,229,176,.25);border-radius:10px;padding:13px 15px">
+      <div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--g);text-transform:uppercase;margin-bottom:10px">Combined Tresiba Flow (${active.length} injection${active.length>1?'s':''})</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div style="text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-bottom:3px">TOTAL FLOW</div>
+          <div style="font-family:var(--cond);font-size:28px;font-weight:900;color:var(--g);letter-spacing:1px">${totalRate}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--mu)">U/hour</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-bottom:3px">EVERY 15MIN</div>
+          <div style="font-family:var(--cond);font-size:28px;font-weight:900;color:var(--g);letter-spacing:1px">${rnd(totalRate/4,3)}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--mu)">U</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-bottom:3px">TOTAL LEFT</div>
+          <div style="font-family:var(--cond);font-size:28px;font-weight:900;color:var(--pu);letter-spacing:1px">${totalRemain}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--mu)">U remaining</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function deleteTresiba(id){
+  if(!confirm('Remove this Tresiba injection?')) return;
+  tresList = tresList.filter(d=>d.id!==id);
+  ST.set('tres', tresList);
+  updateTresibaDisplay();
+  renderTresibaPanel();
+  toast('Tresiba injection removed');
+}
+
+// ================================================================
+// ================================================================
+// PARAMETER 4 — BOLUS IOB MODEL
+// NovoRapid duration: 4.5 hours (patient confirmed)
+// Decay: each hour = 100/4.5 = 22.22% of original dose used
+// Hourly breakdown table for full clarity:
+//
+// For 9U injection (example):
+// Hour 0-1:  22.22% used = 2.0U → 7.0U remaining (78%)
+// Hour 1-2:  22.22% used = 2.0U → 5.0U remaining (56%)
+// Hour 2-3:  22.22% used = 2.0U → 3.0U remaining (33%)
+// Hour 3-4:  22.22% used = 2.0U → 1.0U remaining (11%)
+// Hour 4-4.5:11.11% used = 1.0U → 0.0U remaining (0%)
+//
+// Every 5 min decay = dose × (1/4.5) ÷ 12 = dose × 0.01852U
+// Every 15 min decay = dose × (1/4.5) ÷ 4 = dose × 0.0556U
+// ================================================================
+function calcBolusIOB_stack(){
+  const dia = S.dia || 4.5;
+  const decayPerHr = 1 / dia; // fraction decayed per hour = 0.2222/hr for 4.5h
+
+  let totalIOB = 0;
+  let stacks = [];
+
+  const allDoses = [...doseLog, ...corrLog].filter(d=>(d.total>0||d.dose>0));
+
+  allDoses.forEach(d=>{
+    const dose = d.total||d.dose||0;
+    if(!dose) return;
+    const hrs = hrsAgo(d.ts);
+    if(hrs >= dia) return; // fully expired
+
+    // Linear decay: fraction remaining = 1 - (hrs/dia)
+    const fractionRemaining = Math.max(0, 1 - (hrs/dia));
+    const iob = rnd(dose * fractionRemaining, 2);
+    totalIOB += iob;
+
+    // Flow rates
+    const decayPerHour = rnd(dose * decayPerHr, 3);   // U used per hour
+    const decayPer15   = rnd(dose * decayPerHr / 4, 3); // U used per 15 min
+    const decayPer5    = rnd(dose * decayPerHr / 12, 3);// U used per 5 min
+    const decayPer1    = rnd(dose * decayPerHr / 60, 4);// U used per 1 min
+
+    const hrsLeft = rnd(Math.max(0, dia - hrs), 2);
+    const pct = Math.round(fractionRemaining * 100);
+
+    // Hourly breakdown — how much left at each hour mark
+    const hourlyTable = [];
+    for(let h = 0; h <= Math.ceil(dia); h++){
+      const frac = Math.max(0, 1 - (h/dia));
+      hourlyTable.push({
+        hour: h,
+        remaining: rnd(dose * frac, 2),
+        pct: Math.round(frac*100),
+        isPast: hrs >= h
+      });
+    }
+
+    stacks.push({
+      dose,
+      hrs: rnd(hrs, 2),
+      iob,
+      pct,
+      hrsLeft,
+      label: d.foodName||d.food||'Bolus',
+      mtype: d.mtype||'',
+      decayPerHour,
+      decayPer15,
+      decayPer5,
+      decayPer1,
+      hourlyTable,
+      ts: d.ts
+    });
+  });
+
+  return {totalIOB: rnd(totalIOB, 2), stacks, dia};
+}
+
+function updateBolusDisplay(){
+  const {totalIOB, stacks, dia} = calcBolusIOB_stack();
+  $('bolus-iob').textContent = totalIOB.toFixed(2);
+
+  let html = '';
+
+  if(stacks.length === 0){
+    html = '<div style="font-family:var(--mono);font-size:11px;color:var(--mu);padding:10px 0;text-align:center">No active bolus insulin<br><span style="font-size:9px">Bolus IOB will appear here after logging a dose</span></div>';
+  } else {
+
+    stacks.forEach(s=>{
+      const injTime = new Date(s.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const injDate = new Date(s.ts).toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
+
+      // Build hourly breakdown row
+      const hourRows = s.hourlyTable.map(h=>{
+        const isCurrent = h.hour === Math.floor(s.hrs) || (h.hour === Math.ceil(s.hrs) && s.hrs % 1 !== 0);
+        const style = h.isPast
+          ? 'opacity:0.35;text-decoration:line-through'
+          : isCurrent
+            ? 'background:rgba(167,139,250,.2);border-radius:4px;font-weight:700'
+            : '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;${style}">
+          <span style="font-family:var(--mono);font-size:9px;color:var(--mu)">+${h.hour}h</span>
+          <div style="flex:1;margin:0 8px;height:4px;background:var(--b1);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${h.pct}%;background:${h.isPast?'var(--mu)':'var(--pu)'};border-radius:2px;transition:width .5s"></div>
+          </div>
+          <span style="font-family:var(--mono);font-size:9px;color:${h.isPast?'var(--mu)':h.pct>50?'var(--pu)':h.pct>25?'var(--w)':'var(--d)'}">${h.remaining}U (${h.pct}%)</span>
+        </div>`;
+      }).join('');
+
+      html += `
+      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:9px">
+
+        <!-- Title row -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+          <div>
+            <div style="font-size:13px;font-weight:700">${s.label||'Bolus'}</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--mu);margin-top:2px">
+              ${s.dose}U injected at ${injTime} · ${injDate}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:var(--cond,monospace);font-size:28px;font-weight:900;color:var(--pu);line-height:1">${s.iob}U</div>
+            <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">remaining (${s.pct}%)</div>
+          </div>
+        </div>
+
+        <!-- Main remaining bar -->
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;margin-bottom:3px">
+            <span style="color:var(--mu)">Insulin Remaining</span>
+            <span style="color:var(--pu)">${s.iob}U of ${s.dose}U</span>
+          </div>
+          <div style="height:10px;background:var(--b1);border-radius:5px;overflow:hidden;position:relative">
+            <div style="height:100%;width:${s.pct}%;background:linear-gradient(90deg,var(--pu),#c4b5fd);border-radius:5px;transition:width 1s ease"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:8px;color:var(--mu);margin-top:2px">
+            <span>0U</span><span>${rnd(s.dose/2,1)}U</span><span>${s.dose}U</span>
+          </div>
+        </div>
+
+        <!-- Flow rate stats - 4 boxes -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:10px">
+          <div style="background:var(--s1);border-radius:7px;padding:7px 5px;text-align:center">
+            <div style="font-family:var(--mono);font-size:7px;color:var(--mu);margin-bottom:2px;letter-spacing:.5px">FLOW/HR</div>
+            <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--pu)">${s.decayPerHour}</div>
+            <div style="font-family:var(--mono);font-size:7px;color:var(--mu)">U used/hr</div>
+          </div>
+          <div style="background:var(--s1);border-radius:7px;padding:7px 5px;text-align:center">
+            <div style="font-family:var(--mono);font-size:7px;color:var(--mu);margin-bottom:2px;letter-spacing:.5px">PER 15MIN</div>
+            <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--pu)">${s.decayPer15}</div>
+            <div style="font-family:var(--mono);font-size:7px;color:var(--mu)">U used</div>
+          </div>
+          <div style="background:var(--s1);border-radius:7px;padding:7px 5px;text-align:center">
+            <div style="font-family:var(--mono);font-size:7px;color:var(--mu);margin-bottom:2px;letter-spacing:.5px">PER 5MIN</div>
+            <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--pu)">${s.decayPer5}</div>
+            <div style="font-family:var(--mono);font-size:7px;color:var(--mu)">U used</div>
+          </div>
+          <div style="background:var(--s1);border-radius:7px;padding:7px 5px;text-align:center">
+            <div style="font-family:var(--mono);font-size:7px;color:var(--mu);margin-bottom:2px;letter-spacing:.5px">HRS LEFT</div>
+            <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--w)">${s.hrsLeft}</div>
+            <div style="font-family:var(--mono);font-size:7px;color:var(--mu)">of ${dia}h DIA</div>
+          </div>
+        </div>
+
+        <!-- Hourly breakdown table -->
+        <div style="border-top:1px solid var(--b1);padding-top:8px">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Hourly Breakdown — ${s.dose}U over ${dia}h</div>
+          <div style="background:var(--s1);border-radius:7px;padding:6px 8px">
+            ${hourRows}
+          </div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-top:5px;text-align:center">
+            ─ Strikethrough = past · <strong style="color:var(--pu)">Bold = current hour</strong>
+          </div>
+        </div>
+
+      </div>`;
+    });
+
+    // Combined summary when multiple boluses active
+    if(stacks.length > 1){
+      const totalDecayPerHr = rnd(stacks.reduce((a,s)=>a+s.decayPerHour,0),3);
+      const totalPer15 = rnd(stacks.reduce((a,s)=>a+s.decayPer15,0),3);
+      const totalPer5 = rnd(stacks.reduce((a,s)=>a+s.decayPer5,0),3);
+      html += `
+      <div style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.3);border-radius:10px;padding:12px 14px">
+        <div style="font-family:var(--mono);font-size:8px;color:var(--pu);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">
+          💉 Combined ${stacks.length} Active Boluses
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;text-align:center">
+          <div style="background:var(--s2);border-radius:7px;padding:8px">
+            <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">TOTAL IOB</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--pu)">${totalIOB}U</div>
+          </div>
+          <div style="background:var(--s2);border-radius:7px;padding:8px">
+            <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">DECAY/HR</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--pu)">${totalDecayPerHr}U</div>
+          </div>
+          <div style="background:var(--s2);border-radius:7px;padding:8px">
+            <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">PER 15MIN</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--pu)">${totalPer15}U</div>
+          </div>
+          <div style="background:var(--s2);border-radius:7px;padding:8px">
+            <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">PER 5MIN</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--pu)">${totalPer5}U</div>
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+
+  $('bolus-stacks').innerHTML = html;
+
+  const totalDecay5 = stacks.reduce((a,s)=>a+s.decayPer5,0);
+  $('bolus-next5').textContent = totalDecay5 > 0
+    ? `Combined decay next 5min: −${rnd(totalDecay5,3)}U · next 15min: −${rnd(totalDecay5*3,3)}U`
+    : '';
+
+  $('total-iob').textContent = rnd(totalIOB, 2) + 'U';
+}
+
+// ================================================================
+// COMBINED IOB for prediction (Parameters 3+4+5)
+// ================================================================
+function getTotalActiveInsulin(){
+  const {totalIOB} = calcBolusIOB_stack();
+  const {totalRate} = calcTresibaRate();
+  // Tresiba contributes ongoing coverage; bolus IOB is decaying
+  return {bolusIOB: totalIOB, basalRate: totalRate, total: rnd(totalIOB, 2)};
+}
+
+// ================================================================
+// PARAMETER 2+5 — PREDICTION ENGINE (30min advance warning)
+// Uses linear regression + IOB model
+// ================================================================
+function predictBG(minsAhead){
+  if(bgHist.length < 3) return null;
+  const recent = bgHist.slice(-8);
+  const n = recent.length;
+  const times = recent.map((_,i)=>i*5);
+  const bgs = recent.map(r=>r.bg);
+  const meanT = times.reduce((a,b)=>a+b,0)/n;
+  const meanBG = bgs.reduce((a,b)=>a+b,0)/n;
+  const num_lr = times.reduce((s,t,i)=>s+(t-meanT)*(bgs[i]-meanBG),0);
+  const den_lr = times.reduce((s,t)=>s+(t-meanT)**2,0);
+  const slope = den_lr ? num_lr/den_lr : 0;
+  const intercept = meanBG - slope*((n-1)*5);
+  const raw = intercept + slope * ((n-1)*5 + minsAhead);
+
+  // FIX 1: Include BOTH bolus IOB and Tresiba basal effect in prediction
+  const {bolusIOB} = getTotalActiveInsulin();
+  const {totalRate} = calcTresibaRate();
+
+  // Bolus IOB effect — decaying active insulin lowers BG
+  const bolusEffect = bolusIOB * S.isf * (minsAhead/60) * 0.35;
+
+  // Tresiba basal effect — continuous hourly delivery lowers BG
+  // Rate (U/hr) × ISF (mg/dL/U) × hours ahead × absorption factor
+  const tresibaEffect = totalRate * S.isf * (minsAhead/60) * 0.6;
+
+  const totalInsulinEffect = bolusEffect + tresibaEffect;
+  return Math.max(40, Math.round(raw - totalInsulinEffect));
+}
+
+function getRoC(){
+  if(bgHist.length < 3) return 0;
+  const r = bgHist.slice(-4);
+  if(r.length < 2) return 0;
+  const dt = (new Date(r[r.length-1].ts)-new Date(r[0].ts))/60000;
+  return dt>0 ? rnd((r[r.length-1].bg-r[0].bg)/dt, 2) : 0;
+}
+
+function updatePredictions(){
+  [15,30,45,60,90,120].forEach(t=>{
+    const p=predictBG(t);
+    const el=$('p'+t);
+    if(el&&p){
+      el.textContent=p;
+      el.className='pred-v '+(p<70?'lo':p<=180?'ok':p<=250?'warn':'hi');
+    }
+  });
+}
+
+// ================================================================
+// PARAMETER 2 — 30-MINUTE ADVANCE WARNING + TOP-UP ENGINE
+// ================================================================
+function runLiveAdvisory(bg, roc){
+  if(!S.topup) return;
+  const {bolusIOB} = getTotalActiveInsulin();
+  const {totalRate} = calcTresibaRate();
+  const p30 = predictBG(30)||bg+(roc*30);
+  const p60 = predictBG(60)||bg+(roc*60);
+  const p210 = predictBG(210)||bg+(roc*210);
+  const cooldown = (now()-lastTopupAlert) < 90*60000;
+  const cf = getCF();
+  const tresibaStr = totalRate>0?` · Tresiba: ${totalRate}U/hr`:'';
+
+  // FIX 3: Smart alert logic — check CURRENT state first then trend
+
+  // HYPO — already low
+  if(bg < 70){
+    renderAdvisory('danger','🚨','<div class="ab-title">HYPO — BG is LOW RIGHT NOW</div><div class="ab-msg">BG <strong>'+bg+'</strong> mg/dL — Do NOT inject.<br>Eat 15g fast carbs immediately (glucose tabs / juice / 3 biscuits).<br>Recheck in 15 minutes.</div>',0);
+    return;
+  }
+
+  // HEADING LOW — will drop below 70
+  if(p30 < 70){
+    renderAdvisory('danger','⬇️','<div class="ab-title">BG dropping — predicted BELOW 70 in 30 min</div><div class="ab-msg">Current: <strong>'+bg+'</strong> · Predicted 30min: <strong>'+p30+'</strong><br>Eat 10–15g fast carbs now. Do NOT inject.'+tresibaStr+'</div>',0);
+    return;
+  }
+
+  // ALREADY HIGH — BG is already above 180
+  if(bg > 180 && !cooldown){
+    const corrDose = rnd(Math.max(0,(bg-S.ctarget)/cf - bolusIOB), 1);
+    if(corrDose >= 0.5 && bolusIOB < 2){
+      lastTopupAlert = now();
+      renderAdvisory('topup','🔺',`<div class="ab-title">BG Already Above 180 — Correction Now</div><div class="ab-dose">${corrDose}</div><div class="ab-msg">BG <strong>${bg}</strong> (target ${S.ctarget}) · CF: ${cf}<br>IOB: ${rnd(bolusIOB,1)}U · Pred 60min: ${p60}${tresibaStr}</div>`,corrDose);
+    } else if(bolusIOB >= 2){
+      renderAdvisory('warn','⏳',`<div class="ab-title">BG Above 180 — IOB Active</div><div class="ab-msg">BG <strong>${bg}</strong> · IOB <strong>${rnd(bolusIOB,1)}U</strong> still working.<br>Pred 60min: ${p60} · Wait 30 min before considering correction.${tresibaStr}</div>`,0);
+    } else {
+      renderAdvisory('warn','📈',`<div class="ab-title">BG Above Target</div><div class="ab-msg">BG <strong>${bg}</strong> · Pred 60min: ${p60}<br>Monitor — correction may be needed soon.${tresibaStr}</div>`,0);
+    }
+    return;
+  }
+
+  // HEADING HIGH — will cross 180 soon
+  if(p30 > 180 && bg <= 180 && !cooldown){
+    const corrDose = rnd(Math.max(0,(p60-S.ctarget)/cf - bolusIOB), 1);
+    if(corrDose >= 0.5 && bolusIOB < 1.5){
+      renderAdvisory('warn','📈',`<div class="ab-title">BG Heading Above 180 — Rising Fast</div><div class="ab-msg">Current: <strong>${bg}</strong> · Pred 30min: <strong>${p30}</strong><br>Consider <strong>${corrDose}U</strong> correction now.${tresibaStr}</div>`,corrDose);
+    } else {
+      renderAdvisory('warn','📈',`<div class="ab-title">BG Approaching 180</div><div class="ab-msg">Current: <strong>${bg}</strong> · Pred 30min: <strong>${p30}</strong><br>${bolusIOB>1?'IOB ('+rnd(bolusIOB,1)+'U) should help — monitor.':'Watch closely.'}${tresibaStr}</div>`,0);
+    }
+    return;
+  }
+
+  // 3.5 HOUR CORRECTION CHECK
+  if(p210 > 200){
+    const corrDose = rnd(Math.max(0,(p210-S.ctarget)/cf - bolusIOB), 1);
+    if(corrDose >= 0.5 && bolusIOB < 1.5){
+      renderAdvisory('info','⚡',`<div class="ab-title">Correction Advised — 3.5hr Projection</div><div class="ab-dose" style="color:var(--w)">${corrDose}</div><div class="ab-msg">Projected BG at 3.5h: <strong>${p210}</strong> (target ${S.ctarget})<br>CF: ${cf} · IOB: ${rnd(bolusIOB,1)}U${tresibaStr}</div>`,corrDose);
+      return;
+    }
+  }
+
+  // ALL GOOD
+  $('live-adv').innerHTML=`<div class="alert-banner ok"><div class="ab-icon">✅</div><div class="ab-body"><div class="ab-title">Loop Advisory — All Good</div><div class="ab-msg">BG <strong>${bg}</strong> · Pred 60min: <strong>${p60}</strong> · IOB: ${rnd(bolusIOB,1)}U${tresibaStr}</div></div></div>`;
+  if($('topup-live-adv')) $('topup-live-adv').innerHTML=$('live-adv').innerHTML;
+}
+
+function renderAdvisory(type, icon, html, dose){
+  const h=`<div class="alert-banner ${type}"><div class="ab-icon">${icon}</div><div class="ab-body">${html}${dose>=0.5?`<div class="ab-btn"><button class="btn sec btn-sm" onclick="logTopUpFromAdvisory(${dose})">✓ Log ${dose}U</button></div>`:''}</div></div>`;
+  $('live-adv').innerHTML=h;
+  if($('topup-live-adv')) $('topup-live-adv').innerHTML=h;
+}
+
+function getCF(){return rnd(1800/((S.dbasal||37)+(S.dbolus||27)),1);}
+
+function calcTopUpDose(bg, roc, iob){
+  const p60 = predictBG(60)||bg+(roc*60);
+  const bgDelta = p60 - S.ctarget;
+  const rated = doseLog.filter(e=>e.outcome).length;
+  const safety = Math.min(1, 0.5 + rated/20);
+  let dose = Math.max(0, bgDelta/getCF() - iob) * safety;
+  return rnd(Math.min(dose, 4), 1);
+}
+
+function logTopUpFromAdvisory(dose){
+  corrLog.unshift({dose, ts:toISO(), bg:bgHist.slice(-1)[0]?.bg||0, type:'auto-advisory'});
+  ST.set('corrlog',corrLog.slice(0,100));
+  toast('✓ Top-up logged');
+  renderCorrHistory();
+}
+
+// ================================================================
+// PARAMETER 1+7 — BOLUS CALCULATION WITH SPLIT DOSE INTELLIGENCE
+// Split: 75% before meal, 25% +2h, correction at +4h if needed
+// ================================================================
+function calcBolus(){
+  const bg = num('bg');
+  const carbs = num('carbs');
+  const fp = num('fp');
+  const trend = parseFloat($('trend').value)||0;
+  const mtype = $('mtype').value;
+  const timing = $('timing').value;
+  const base = parseInt($('bval').value)||S.base;
+
+  if(!bg){alert('Enter your blood glucose.');return;}
+
+  const MULT={normal:1,small:.75,large:1.25,'high-gi':1.15,'low-gi':.85,correction:0};
+  let mMult=MULT[mtype]||1;
+  if(timing==='post') mMult*=0.85;
+
+  let mealBolus=0;
+  if(mtype!=='correction') mealBolus=carbs>0?(carbs/S.icr)*mMult:base*mMult;
+
+  // Learning adjustment (exponentially weighted)
+  let learnAdj=0;
+  if(S.learn&&selectedFood&&patterns[selectedFood.id]){
+    const p=patterns[selectedFood.id];
+    const conf=Math.min(p.count/10,1);
+    learnAdj=rnd((p.adj||0)*conf,1);
+  }
+  mealBolus=Math.max(0,mealBolus+learnAdj);
+
+  // Walk reduction
+  const walkAdj = getWalkReduction();
+  mealBolus = Math.max(0, mealBolus * (1-walkAdj));
+
+  // IOB from all sources
+  const {bolusIOB} = getTotalActiveInsulin();
+  let corr=(bg-S.target)/getCF()-bolusIOB;
+  const tAdj=(trend*15)/getCF();
+  let total=Math.max(0,mealBolus+corr+tAdj);
+  if(S.lockout&&bg<70) total=0;
+  const capped=total>S.max;
+  total=rnd(Math.min(total,S.max));
+
+  // --- PARAMETER 7: SPLIT DOSE STRATEGY ---
+  let splitPlan = null;
+  const needsSplit = S.split && (
+    fp>40 || mtype==='high-gi' || mtype==='large' ||
+    (selectedFood?.notes?.toLowerCase().includes('split')) ||
+    (selectedFood&&patterns[selectedFood.id]?.splitHelpCount>patterns[selectedFood.id]?.count*0.4) ||
+    carbs > 70
+  );
+
+  if(needsSplit && total >= 2){
+    const now75 = rnd(total*0.75, 1);
+    const later25 = rnd(total*0.25, 1);
+    const corrFactor = getCF();
+
+    // Determine split type
+    let splitType='standard', splitReason='', delay2h='2 hours', thirdDoseNote='';
+    if(fp > 60){
+      splitType='high-fat';
+      splitReason=`High fat+protein (${fp}g) causes a delayed glucose rise 2–4 hours after eating. The 25% second dose covers this.`;
+    } else if(mtype==='high-gi' || carbs>70){
+      splitType='high-gi';
+      splitReason=`High-GI meal or large carb load (${carbs}g) causes both an immediate spike and a secondary rise. Split dose covers both phases.`;
+    } else {
+      splitReason=`Pattern history suggests this meal needs a split to control the 2-hour glucose peak.`;
+    }
+
+    thirdDoseNote = `If BG still rising above ${S.ctarget+40} at +4 hours: correction = (BG − ${S.ctarget}) ÷ ${rnd(corrFactor,1)}`;
+
+    splitPlan = {now75, later25, delay2h, splitReason, thirdDoseNote, splitType, total};
+  }
+
+  // Update UI
+  $('r-total').textContent=total;
+  $('r-conf').textContent=`Units NovoRapid · ${(selectedFood&&patterns[selectedFood.id])?patterns[selectedFood.id].count+' sessions learned':'No food pattern yet'}`;
+  // FIX 2: Update override display
+  if($('suggested-dose-display')) $('suggested-dose-display').textContent = total;
+  if($('override-dose-input')) $('override-dose-input').placeholder = `Leave blank to use ${total}U`;
+  $('r-meal').textContent=rnd(mealBolus,1)+' U';
+  const ce=$('r-corr');ce.textContent=rnd(corr,1)+' U';ce.className='bv'+(corr>0.2?' pos':corr<-0.2?' neg':'');
+  $('r-iob').textContent=bolusIOB>0.1?'−'+rnd(bolusIOB,1)+' U':'—';
+  $('r-learn').textContent=Math.abs(learnAdj)>0.05?(learnAdj>0?'+':'')+learnAdj+' U':'—';
+
+  // Split panel
+  const sp=$('split-panel');
+  if(splitPlan){
+    sp.style.display='block';
+    $('split-reason').textContent=splitPlan.splitReason;
+    renderSplitTimeline('split-timeline', splitPlan);
+    $('split-detail-row').innerHTML=`75% (${splitPlan.now75}U) NOW · 25% (${splitPlan.later25}U) in ${splitPlan.delay2h}<br>${splitPlan.thirdDoseNote}`;
+    window._splitPending=splitPlan;
+  } else {sp.style.display='none';window._splitPending=null;}
+
+  $('balerts').innerHTML='';
+  if(S.lockout&&bg<70) alrt('balerts','danger','🚨','<div class="ab-title">HYPO — Do NOT inject</div><div class="ab-msg">Treat with 15g fast carbs first.</div>');
+  else if(bg<90) alrt('balerts','warn','⚠️','<div class="ab-msg">BG below target. Keep fast carbs nearby.</div>');
+  if(bg>270) alrt('balerts','danger','🔴','<div class="ab-msg">BG above 270. Check injection site and ketones.</div>');
+  if(capped) alrt('balerts','warn','🛑',`<div class="ab-msg">Dose capped at ${S.max}U. Verify carb count.</div>`);
+  if(trend===2) alrt('balerts','warn','⬆⬆','<div class="ab-msg">Rapidly rising — pre-bolus <strong>15–20 min before eating</strong>.</div>');
+  if(trend===-2) alrt('balerts','warn','⬇⬇','<div class="ab-msg">Rapidly falling — eat first, delay bolus.</div>');
+  if(walkAdj>0) alrt('balerts','ok','🚶',`<div class="ab-msg">Walk reduction applied: <strong>−${Math.round(walkAdj*100)}%</strong></div>`);
+  if(Math.abs(learnAdj)>0.1) alrt('balerts','info','🧠',`<div class="ab-msg">Pattern: <strong>${learnAdj>0?'+':''}${learnAdj}U</strong> applied from learning history.</div>`);
+
+  window._lastCalc={bg,carbs,fp,mtype,timing,mealBolus:rnd(mealBolus,1),corr:rnd(corr,1),iob:rnd(bolusIOB,1),learnAdj,total,split:!!splitPlan,splitNow:splitPlan?.now75||0,splitLater:splitPlan?.later25||0,splitDelay:splitPlan?.delay2h||'',foodId:selectedFood?.id,foodName:selectedFood?.name,ts:toISO()};
+
+  $('result-panel').style.display='block';
+  getBolusAdvisory(window._lastCalc);
+}
+
+function renderSplitTimeline(containerId, plan){
+  const c=$(containerId); if(!c) return;
+  c.innerHTML=`
+    <div class="split-point"><div class="split-dot now"></div><div class="split-amount" style="color:var(--g)">${plan.now75}U</div><div class="split-label">NOW<br>75%</div></div>
+    <div style="flex:2;height:2px;background:linear-gradient(90deg,var(--g),var(--pu));z-index:0;margin-top:-14px"></div>
+    <div class="split-point"><div class="split-dot d2"></div><div class="split-amount" style="color:var(--pu)">${plan.later25}U</div><div class="split-label">+2 hrs<br>25%</div></div>
+    <div style="flex:2;height:2px;background:linear-gradient(90deg,var(--pu),var(--w));z-index:0;margin-top:-14px"></div>
+    <div class="split-point"><div class="split-dot d3"></div><div class="split-amount" style="color:var(--w);font-size:14px">if high</div><div class="split-label">+4 hrs<br>correction</div></div>`;
+}
+
+// ================================================================
+// PARAMETER 1 — POST-MEAL CGM MONITORING (1h/2h/3h tracking)
+// ================================================================
+function startPMM(foodId, foodName, dose, splitPlan){
+  if(!S.pmm) return;
+  const startBG = bgHist.slice(-1)[0]?.bg || 0;
+  pmmActive = {
+    foodId, foodName, dose, startBG,
+    startTs: toISO(),
+    readings: [],
+    split: !!splitPlan,
+    splitNow: splitPlan?.now75||0,
+    splitLater: splitPlan?.later25||0
+  };
+  ST.set('pmma', pmmActive);
+  $('pmm-food-name').textContent = foodName||'Meal';
+  $('pmm-active').style.display='block';
+  schedulePMMChecks();
+}
+
+function schedulePMMChecks(){
+  if(pmmInterval) clearInterval(pmmInterval);
+  pmmInterval=setInterval(()=>{
+    if(!pmmActive) return;
+    const elapsed = (now()-new Date(pmmActive.startTs).getTime())/3600000;
+    const latest = bgHist.slice(-1)[0];
+    if(!latest) return;
+
+    const checkTimes = [1,2,3];
+    checkTimes.forEach(h=>{
+      const alreadyLogged = pmmActive.readings.find(r=>r.hour===h);
+      if(!alreadyLogged && elapsed >= h-0.05 && elapsed < h+0.1){
+        const reading = {hour:h, bg:latest.bg, ts:toISO()};
+        pmmActive.readings.push(reading);
+        ST.set('pmma', pmmActive);
+        renderPMMReadings();
+        // Learn from this reading
+        if(pmmActive.foodId) updatePostMealLearning(pmmActive.foodId, h, latest.bg, pmmActive.startBG, pmmActive.dose);
+        // Notify
+        notify('📊 Post-Meal Check', `${h}h after meal: BG ${latest.bg} mg/dL`, 'pmm-'+h);
+      }
+    });
+
+    if(elapsed >= 3.1){
+      finalisePMM();
+      clearInterval(pmmInterval);
+    }
+  }, 60000); // check every minute
+}
+
+function renderPMMReadings(){
+  if(!pmmActive) return;
+  let html=`<div style="font-size:11px;color:var(--mu);font-family:var(--mono);margin-bottom:8px">Start BG: <strong style="color:var(--tx)">${pmmActive.startBG}</strong> · Dose: ${pmmActive.dose}U${pmmActive.split?` (split: ${pmmActive.splitNow}+${pmmActive.splitLater}U)`:''}</div>`;
+  [1,2,3].forEach(h=>{
+    const r=pmmActive.readings.find(x=>x.hour===h);
+    const elapsed=(now()-new Date(pmmActive.startTs).getTime())/3600000;
+    const active=elapsed<h;
+    const delta=r?r.bg-pmmActive.startBG:null;
+    const dColor=delta===null?'var(--mu)':delta>40?'var(--d)':delta>0?'var(--w)':'var(--g)';
+    html+=`<div class="pmt-row">
+      <div class="pmt-time">+${h}h</div>
+      <div class="pmt-bg" style="color:${r?dColor:'var(--mu)'}">${r?r.bg:'—'}</div>
+      <div class="pmt-delta" style="color:${dColor}">${r?(delta>=0?'+':'')+delta+' mg/dL':active?'<span style="color:var(--mu)">waiting…</span>':'missed'}</div>
+    </div>`;
+  });
+  $('pmm-readings').innerHTML=html;
+}
+
+function updatePostMealLearning(foodId, hour, bg, startBG, dose){
+  if(!patterns[foodId]) patterns[foodId]={adj:0,count:0,goodCount:0,splitHelpCount:0,recentOutcomes:[],postMeal:{h1:[],h2:[],h3:[]}};
+  const p=patterns[foodId];
+  if(!p.postMeal) p.postMeal={h1:[],h2:[],h3:[]};
+  const delta=bg-startBG;
+  p.postMeal['h'+hour].push(delta);
+  if(p.postMeal['h'+hour].length>10) p.postMeal['h'+hour].shift();
+
+  // If 2h BG is very high, increase dose adjustment
+  if(hour===2 && bg > 200){
+    p.adj = rnd((p.adj||0)+0.5, 1);
+    ST.set('pat',patterns);
+  } else if(hour===2 && bg < 80){
+    p.adj = rnd((p.adj||0)-0.3, 1);
+    ST.set('pat',patterns);
+  }
+  ST.set('pat',patterns);
+}
+
+function finalisePMM(){
+  if(!pmmActive) return;
+  const r2=pmmActive.readings.find(r=>r.hour===2);
+  const r3=pmmActive.readings.find(r=>r.hour===3);
+  const outcome = r2?(r2.bg>180?'high':r2.bg<70?'low':'good'):null;
+
+  if(outcome&&pmmActive.foodId&&S.learn){
+    const p=patterns[pmmActive.foodId]||{adj:0,count:0,goodCount:0,splitHelpCount:0,recentOutcomes:[]};
+    p.count++;
+    p.recentOutcomes=p.recentOutcomes||[];
+    p.recentOutcomes.push(outcome);
+    if(p.recentOutcomes.length>10) p.recentOutcomes.shift();
+    if(outcome==='good') p.goodCount++;
+    else if(outcome==='high'){
+      const rhr=p.recentOutcomes.filter(o=>o==='high').length/Math.max(p.recentOutcomes.length,1);
+      p.adj=rnd((p.adj||0)+0.5+rhr,1);
+      if(pmmActive.split) p.splitHelpCount=(p.splitHelpCount||0)+1;
+    } else if(outcome==='low'){
+      p.adj=rnd((p.adj||0)-0.4,1);
+    }
+    p.adj=rnd(Math.max(-5,Math.min(5,p.adj)),1);
+    patterns[pmmActive.foodId]=p;
+    ST.set('pat',patterns);
+  }
+
+  $('pmm-analysis').textContent=outcome?`Auto-outcome: ${outcome.toUpperCase()} (from 2h reading: ${r2?.bg||'—'} mg/dL). Algorithm updated.`:'Post-meal monitoring complete.';
+  setTimeout(()=>{pmmActive=null;ST.set('pmma',null);},10000);
+}
+
+// ================================================================
+// PARAMETER 6 — WALK LEARNING
+// ================================================================
+function logWalk(){
+  const type=($('ex-type')||{}).value||'walk-moderate';
+  const dur=num('ex-dur',30);
+  const bgStart=num('ex-bg-start',0)||(bgHist.slice(-1)[0]?.bg||0);
+  const timing=($('ex-timing')||{}).value||'anytime';
+  if(!dur){alert('Enter duration.');return;}
+
+  const entry={id:uid(),type,dur,bgStart,timing,ts:toISO(),bgEnd:null};
+  walkLog.push(entry);
+  ST.set('walks',walkLog.slice(0,100));
+
+  // Schedule BG check after walk (1 hour later)
+  if(S.walklearn && bgStart > 0){
+    setTimeout(()=>checkWalkBGResponse(entry.id), 60*60000);
+  }
+  renderWalkLog();
+  renderWalkLearning();
+  toast('✓ Walk logged — system will track BG response');
+}
+
+function checkWalkBGResponse(walkId){
+  const latestBG = bgHist.slice(-1)[0]?.bg;
+  if(!latestBG) return;
+  const walk = walkLog.find(w=>w.id===walkId);
+  if(!walk||!walk.bgStart) return;
+
+  walk.bgEnd = latestBG;
+  const bgDrop = walk.bgStart - latestBG;
+  const dropPerMin = bgDrop / walk.dur;
+
+  if(!walkLearning[walk.type]) walkLearning[walk.type]={sessions:[],avgDropPerMin:0};
+  const wl = walkLearning[walk.type];
+  wl.sessions.push({dur:walk.dur,drop:bgDrop,dropPerMin:rnd(dropPerMin,3),ts:walk.ts});
+  if(wl.sessions.length > 15) wl.sessions.shift();
+  wl.avgDropPerMin = rnd(wl.sessions.reduce((a,s)=>a+s.dropPerMin,0)/wl.sessions.length,3);
+
+  ST.set('walks',walkLog);
+  ST.set('wlearn',walkLearning);
+  notify('🚶 Walk Complete',`BG dropped ${bgDrop} mg/dL in ${walk.dur}min (${rnd(dropPerMin,2)}/min)`,`walk-${walkId}`);
+  renderWalkLearning();
+}
+
+function getWalkReduction(){
+  // Returns fractional reduction to apply to bolus based on recent walks
+  const recentWalks = walkLog.filter(w=>{
+    const hrs=hrsAgo(w.ts);
+    return hrs < 4; // walks in last 4 hours
+  });
+  if(!recentWalks.length) return 0;
+
+  let totalEffect = 0;
+  recentWalks.forEach(w=>{
+    const wl = walkLearning[w.type];
+    if(wl && wl.avgDropPerMin){
+      // Expected drop / ISF = insulin equivalent
+      const expectedDrop = wl.avgDropPerMin * w.dur;
+      const insulinEquiv = expectedDrop / S.isf;
+      const hrsElapsed = hrsAgo(w.ts);
+      // Effect decays over 4 hours
+      const decay = Math.max(0, 1 - hrsElapsed/4);
+      totalEffect += (insulinEquiv / S.base) * decay;
+    } else {
+      // Default 12% per 30-min brisk walk if no learning yet
+      totalEffect += (w.dur/30) * 0.12 * Math.max(0, 1-hrsAgo(w.ts)/4);
+    }
+  });
+  return Math.min(0.4, totalEffect); // cap at 40% reduction
+}
+
+function renderWalkLog(){
+  const el=$('walk-log-list');
+  if(!walkLog.length){el.innerHTML='<p style="font-size:12px;color:var(--mu);text-align:center;padding:12px 0">No walks logged.</p>';return;}
+  el.innerHTML=walkLog.slice(-10).reverse().map(w=>{
+    const d=new Date(w.ts);
+    const ts=d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const drop=w.bgEnd?`BG: ${w.bgStart}→${w.bgEnd} (−${w.bgStart-w.bgEnd})`:w.bgStart?`Start BG: ${w.bgStart}`:'' ;
+    return `<div class="walk-entry"><div class="walk-header"><strong>${w.type.replace('-',' ')}</strong> · ${w.dur} min<span style="font-family:var(--mono);font-size:9px;color:var(--mu)">${ts}</span></div><div style="font-family:var(--mono);font-size:9px;color:var(--mu)">${drop}</div></div>`;
+  }).join('');
+}
+
+function renderWalkLearning(){
+  const el=$('walk-learning-panel');
+  const types=Object.entries(walkLearning);
+  if(!types.length){el.innerHTML='<p style="font-size:12px;color:var(--mu);text-align:center;padding:12px 0">Log 3+ walks to see learned patterns.</p>';return;}
+  el.innerHTML=types.map(([type,wl])=>{
+    const sessions=wl.sessions.length;
+    const avgDrop=rnd(wl.avgDropPerMin*30,1); // per 30 min
+    const insulinEquiv=rnd(avgDrop/S.isf,2);
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <div style="font-weight:600;margin-bottom:3px">${type.replace('-',' ')}</div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--mu)">${sessions} sessions · Avg drop: <strong style="color:var(--g)">${avgDrop} mg/dL</strong> per 30min · Equiv: ${insulinEquiv}U</div>
+      <div class="prog" style="margin-top:4px"><div class="prog-track"><div class="prog-fill" style="width:${Math.min(100,sessions*20)}%;background:var(--g)"></div></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ================================================================
+// FOOD PHOTO ANALYSIS — PARAMETER 1
+// ================================================================
+let photoBase64=null;
+
+// ================================================================
+// FIX 4 — Food Entry Tab Switching
+// ================================================================
+function switchFoodTab(tab){
+  ['healthify','manual','photo'].forEach(t=>{
+    const panel = $('ftab-'+t+'-panel');
+    const btn = $('ftab-'+t);
+    if(panel) panel.style.display = t===tab ? 'block' : 'none';
+    if(btn){
+      if(t===tab){
+        btn.style.background='var(--g)';btn.style.color='#001a10';btn.style.border='none';
+      } else {
+        btn.style.background='var(--s2)';btn.style.color='var(--mu)';btn.style.border='1px solid var(--b1)';
+      }
+    }
+  });
+}
+
+// FIX 4 — Healthify Screenshot Analysis
+let healthifyBase64 = null;
+
+function loadHealthify(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const src = e.target.result;
+    $('healthify-preview').src = src;
+    $('healthify-preview').style.display = 'block';
+    $('healthify-placeholder').style.display = 'none';
+    healthifyBase64 = src.split(',')[1];
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyseHealthify(){
+  if(!healthifyBase64){ alert('Please upload a Healthify screenshot first.'); return; }
+  $('healthify-result').style.display = 'block';
+  $('healthify-ai-box').className = 'ai-box load';
+  $('healthify-ai-box').innerHTML = '<div class="dots"><span></span><span></span><span></span></div><span style="margin-left:6px">Reading Healthify nutrition values…</span>';
+  $('healthify-dose-panel').style.display = 'none';
+
+  const foodName = $('healthify-name').value.trim();
+  const latestBG = bgHist.slice(-1)[0]?.bg || 0;
+  const {bolusIOB} = getTotalActiveInsulin();
+
+  const prompt = `You are reading a Healthify nutrition screenshot for a diabetes MDI advisory system.
+
+Patient: ICR ${S.icr}g/U · ISF ${S.isf} · Target ${S.target} · CF ${getCF()} · Current BG: ${latestBG||'unknown'} · IOB: ${rnd(bolusIOB,1)}U
+${foodName ? 'Food name: '+foodName : ''}
+
+Read the nutrition values from this Healthify screenshot and respond in EXACT JSON only (no other text):
+{
+  "foodName": "name of food",
+  "portionSize": "portion shown",
+  "carbs": number (grams from screenshot),
+  "fat": number (grams from screenshot),
+  "protein": number (grams from screenshot),
+  "calories": number (if visible),
+  "gi": "high" or "medium" or "low",
+  "mealDose": number (carbs÷${S.icr} adjusted for BG ${latestBG||100}),
+  "splitNeeded": true or false (true if fat+protein > 25g),
+  "splitExtra": number (units for split = max(0, fat+protein-25)÷16),
+  "splitReason": "reason if split needed"
+}`;
+
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-sonnet-4-20250514', max_tokens:800,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:'image/jpeg',data:healthifyBase64}},
+        {type:'text',text:prompt}
+      ]}]
+    })});
+    const data = await res.json();
+    const text = data.content?.find(b=>b.type==='text')?.text||'{}';
+    const clean = text.replace(/```json?|```/g,'').trim();
+    const n = JSON.parse(clean);
+
+    $('healthify-ai-box').className = 'ai-box';
+    $('healthify-ai-box').innerHTML = `<div class="ai-lbl">📱 Healthify Values Read</div>
+      <strong style="font-size:14px">${n.foodName}</strong> · ${n.portionSize}<br>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin:8px 0">
+        <div style="background:var(--s1);border-radius:7px;padding:7px;text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">CARBS</div>
+          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--g)">${n.carbs}g</div>
+        </div>
+        <div style="background:var(--s1);border-radius:7px;padding:7px;text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">FAT</div>
+          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--w)">${n.fat}g</div>
+        </div>
+        <div style="background:var(--s1);border-radius:7px;padding:7px;text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">PROTEIN</div>
+          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--pu)">${n.protein}g</div>
+        </div>
+        <div style="background:var(--s1);border-radius:7px;padding:7px;text-align:center">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">CALS</div>
+          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--mu)">${n.calories||'—'}</div>
+        </div>
+      </div>`;
+
+    // Calculate final dose with split rule
+    const totalFP = (n.fat||0) + (n.protein||0);
+    const splitExtra = n.splitNeeded ? rnd(Math.max(0,(totalFP-25)/16),1) : 0;
+    const mealDose = rnd(n.mealDose||n.carbs/S.icr, 1);
+    const nowDose = mealDose;
+    const splitDose = splitExtra;
+
+    $('healthify-dose-panel').style.display = 'block';
+    $('healthify-dose-panel').innerHTML = `
+      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:14px;text-align:center;margin:8px 0">
+        <div style="font-family:var(--mono);font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:2px;margin-bottom:4px">Recommended Dose</div>
+        <div style="font-family:var(--cond);font-size:64px;font-weight:900;color:var(--g);letter-spacing:2px;line-height:1">${nowDose}</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--mu)">Units NovoRapid NOW</div>
+        ${splitDose > 0 ? `
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--b1)">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--pu);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">💜 Split Dose at +2 Hours</div>
+          <div style="font-family:var(--cond);font-size:36px;font-weight:900;color:var(--pu);letter-spacing:1px">${splitDose}U</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--mu)">${n.splitReason||'Fat+protein ('+totalFP+'g) > 25g → '+(totalFP-25)+'g extra ÷ 16 = '+splitDose+'U split'}</div>
+        </div>` : ''}
+      </div>
+      <div class="row">
+        <button class="btn" onclick="acceptHealthifyDose(${nowDose},${splitDose},'${n.foodName}',${n.carbs},${n.fat},${n.protein})">✓ Use This Dose</button>
+        <button class="btn sec" onclick="saveHealthifyToFoodDB('${n.foodName}','${n.portionSize}',${n.carbs},${n.fat},${n.protein},'${n.gi}',${nowDose})">+ Save to Food DB</button>
+      </div>`;
+
+    window._healthifyData = {name:n.foodName,portion:n.portionSize,carbs:n.carbs,fat:n.fat,protein:n.protein,gi:n.gi,dose:nowDose,split:splitDose,splitReason:n.splitReason};
+
+  }catch(e){
+    $('healthify-ai-box').className = 'ai-box';
+    $('healthify-ai-box').innerHTML = '<div class="ai-lbl">Error</div>Could not read screenshot. Try again or use manual entry.';
+  }
+}
+
+function acceptHealthifyDose(dose, split, name, carbs, fat, protein){
+  // Pre-fill bolus tab
+  $('carbs').value = carbs;
+  $('fp').value = (fat||0)+(protein||0);
+  $('bval').value = Math.round(dose);
+  $('bdisplay').textContent = Math.round(dose)+' U';
+  if($('fsearch')) $('fsearch').value = name;
+
+  if(split > 0){
+    window._splitPending = {
+      now75: dose,
+      later25: split,
+      delay2h: '2 hours',
+      splitReason: `Fat+protein triggered split: ${split}U at +2 hours`,
+      thirdDoseNote: `If BG still >200 at +4h: correction = (BG-${S.ctarget})÷${getCF()}`
+    };
+  }
+
+  // Switch to bolus tab
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  $('panel-bolus').classList.add('active');
+  document.querySelectorAll('.tab')[0].classList.add('active');
+  toast('✓ Dose loaded from Healthify — tap Calculate to confirm');
+}
+
+function saveHealthifyToFoodDB(name, portion, carbs, fat, protein, gi, dose){
+  const f = {id:uid(),name,portion:portion||'1 serving',carbs,fat:fat||0,protein:protein||0,gi:gi||'medium',dose,notes:'From Healthify',fromHealthify:true};
+  if(!foodDB.find(x=>x.name.toLowerCase()===name.toLowerCase())){
+    foodDB.push(f); ST.set('foods',foodDB);
+    toast('✓ Saved to food database');
+    renderFoodDB();
+  } else { toast('Already in food database'); }
+}
+
+// FIX 4 — Manual Entry with Auto Split Rule
+function calcManualDose(){
+  const carbs = parseFloat($('manual-carbs')?.value)||0;
+  const fat = parseFloat($('manual-fat')?.value)||0;
+  const protein = parseFloat($('manual-protein')?.value)||0;
+  const gi = $('manual-gi')?.value||'medium';
+
+  if(carbs === 0 && fat === 0 && protein === 0){ $('manual-dose-display').style.display='none'; return; }
+
+  const giMult = gi==='high'?1.15:gi==='low'?0.85:1.0;
+  const mealDose = rnd((carbs/S.icr)*giMult, 1);
+
+  // Auto split rule: >25g fat+protein → 1U per 16g additional
+  const totalFP = fat + protein;
+  const splitExtra = totalFP > 25 ? rnd((totalFP-25)/16, 1) : 0;
+
+  $('manual-dose-display').style.display = 'block';
+  $('manual-meal-dose').textContent = mealDose;
+  $('manual-split-dose').textContent = splitExtra > 0 ? splitExtra : '0';
+
+  if(splitExtra > 0){
+    $('manual-split-reason').textContent = `Fat+protein: ${totalFP}g > 25g → extra ${totalFP-25}g ÷ 16 = ${splitExtra}U split at +2hrs`;
+    $('manual-split-box').style.opacity = '1';
+  } else {
+    $('manual-split-reason').textContent = `Fat+protein: ${totalFP}g ≤ 25g — no split needed`;
+    $('manual-split-box').style.opacity = '0.4';
+  }
+
+  const bgNow = bgHist.slice(-1)[0]?.bg || 0;
+  const corrAdj = bgNow > 0 ? rnd((bgNow - S.target)/getCF(), 1) : 0;
+  const {bolusIOB} = getTotalActiveInsulin();
+  $('manual-dose-breakdown').textContent = `Meal: ${mealDose}U · Corr: ${corrAdj}U · IOB: -${rnd(bolusIOB,1)}U · Split: +${splitExtra}U at +2h`;
+}
+
+function useManualDose(){
+  const carbs = parseFloat($('manual-carbs')?.value)||0;
+  const fat = parseFloat($('manual-fat')?.value)||0;
+  const protein = parseFloat($('manual-protein')?.value)||0;
+  const gi = $('manual-gi')?.value||'medium';
+  const name = $('manual-fname')?.value?.trim()||'Manual entry';
+  const portion = $('manual-portion')?.value?.trim()||'1 serving';
+
+  if(carbs===0){ alert('Enter at least carbs.'); return; }
+
+  const giMult = gi==='high'?1.15:gi==='low'?0.85:1.0;
+  const mealDose = rnd((carbs/S.icr)*giMult, 1);
+  const totalFP = fat+protein;
+  const splitExtra = totalFP > 25 ? rnd((totalFP-25)/16, 1) : 0;
+
+  // Pre-fill bolus tab
+  $('carbs').value = carbs;
+  $('fp').value = totalFP;
+  $('bval').value = Math.round(mealDose);
+  $('bdisplay').textContent = Math.round(mealDose)+' U';
+  if($('fsearch')) $('fsearch').value = name;
+  if(gi==='high') $('mtype').value='high-gi';
+  else if(gi==='low') $('mtype').value='low-gi';
+  else $('mtype').value='normal';
+
+  if(splitExtra > 0){
+    window._splitPending = {
+      now75: mealDose,
+      later25: splitExtra,
+      delay2h: '2 hours',
+      splitReason: `Fat+protein (${totalFP}g) > 25g → ${splitExtra}U split at +2 hours`,
+      thirdDoseNote: `If BG >200 at +4h: correction = (BG-${S.ctarget})÷${getCF()}`
+    };
+  }
+
+  // Switch to bolus tab and calculate
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  $('panel-bolus').classList.add('active');
+  document.querySelectorAll('.tab')[0].classList.add('active');
+
+  setTimeout(()=>calcBolus(), 100);
+  toast('✓ Manual values loaded — dose calculated');
+}
+
+function loadPhoto(evt){
+  const file=evt.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const src=e.target.result;
+    $('photo-preview').src=src;
+    $('photo-preview').style.display='block';
+    $('photo-placeholder').style.display='none';
+    photoBase64=src.split(',')[1];
+    photoData={src, base64:photoBase64, type:file.type};
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analysePhoto(){
+  if(!photoBase64){alert('Please upload a food photo first.');return;}
+  $('photo-result').style.display='block';
+  $('photo-ai-box').className='ai-box load';
+  $('photo-ai-box').innerHTML='<div class="dots"><span></span><span></span><span></span></div><span style="margin-left:6px">Identifying food and estimating nutrition…</span>';
+  $('photo-dose-panel').style.display='none';
+
+  const notes=$('photo-notes').value.trim();
+  const latestBG=bgHist.slice(-1)[0]?.bg||0;
+  const roc=getRoC();
+  const {bolusIOB}=getTotalActiveInsulin();
+
+  const prompt=`You are a diabetes nutrition AI integrated into a closed-loop MDI advisory system.
+
+Patient profile:
+- ICR: ${S.icr}g carbs per unit | ISF: ${S.isf}mg/dL per unit | Target BG: ${S.target}mg/dL
+- Base bolus: ~${S.base}U per meal | Correction factor: ${getCF()} mg/dL per unit
+- Current BG: ${latestBG||'unknown'} mg/dL | CGM trend: ${roc}/min
+- Active IOB: ${rnd(bolusIOB,1)}U
+${notes?'- Meal context: '+notes:''}
+
+Analyse this food image and respond in this EXACT JSON format only (no other text):
+{
+  "foodName": "name of the dish",
+  "portionEstimate": "estimated portion size",
+  "carbs": number (grams),
+  "fat": number (grams),
+  "protein": number (grams),
+  "gi": "high" or "medium" or "low",
+  "confidence": "high" or "medium" or "low",
+  "notes": "one sentence about this food's glucose behaviour",
+  "recommendedDose": number (units, calculated from carbs÷ICR + BG correction),
+  "splitRecommended": true or false,
+  "splitReason": "reason if split recommended",
+  "mealType": "high-gi" or "normal" or "large" or "low-gi"
+}`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',max_tokens:1000,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:photoData.type||'image/jpeg',data:photoBase64}},
+        {type:'text',text:prompt}
+      ]}]
+    })});
+    const data=await res.json();
+    const text=data.content?.find(b=>b.type==='text')?.text||'{}';
+    const clean=text.replace(/```json?|```/g,'').trim();
+    const food=JSON.parse(clean);
+
+    $('photo-ai-box').className='ai-box';
+    $('photo-ai-box').innerHTML=`<div class="ai-lbl">🍽 Food Recognition</div>
+      <strong style="font-size:14px">${food.foodName}</strong> · ${food.portionEstimate}<br>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--mu)">${food.carbs}g carbs · ${food.fat}g fat · ${food.protein}g protein · ${food.gi} GI · Confidence: ${food.confidence}</span><br>
+      <span style="font-size:12px;color:var(--mu)">${food.notes}</span>`;
+
+    // Show dose
+    const dose=rnd(food.recommendedDose,1);
+    $('photo-dose-val').textContent=dose;
+    $('photo-dose-panel').style.display='block';
+
+    if(food.splitRecommended){
+      const plan={now75:rnd(dose*.75,1),later25:rnd(dose*.25,1),delay2h:'2 hours',splitReason:food.splitReason,thirdDoseNote:'If BG>200 at +4h: correction = (BG-'+S.ctarget+')÷'+getCF(),total:dose};
+      $('photo-split-panel').style.display='block';
+      renderSplitTimeline('photo-split-timeline',plan);
+      window._photoSplitPlan=plan;
+    } else {
+      $('photo-split-panel').style.display='none';
+      window._photoSplitPlan=null;
+    }
+
+    window._photoFood=food;
+    window._photoDose=dose;
+
+    // Auto-populate bolus panel
+    $('carbs').value=food.carbs;
+    $('fp').value=(food.fat||0)+(food.protein||0);
+    $('mtype').value=food.mealType||'normal';
+    $('bval').value=Math.round(dose);
+    $('bdisplay').textContent=Math.round(dose)+' U';
+
+  }catch(e){
+    $('photo-ai-box').className='ai-box';
+    $('photo-ai-box').innerHTML='<div class="ai-lbl">Error</div>Could not analyse photo. Try again or enter food manually.';
+  }
+}
+
+function acceptPhotoDose(){
+  if(!window._photoFood) return;
+  const f=window._photoFood;
+  // Save to food DB
+  const entry={id:uid(),name:f.foodName,portion:f.portionEstimate||'1 serving',carbs:f.carbs,fat:f.fat||0,protein:f.protein||0,gi:f.gi,dose:window._photoDose,notes:f.notes,fromPhoto:true};
+  if(!foodDB.find(x=>x.name.toLowerCase()===f.foodName.toLowerCase())){
+    foodDB.push(entry);
+    ST.set('foods',foodDB);
+  }
+  // Log the dose
+  const calc={bg:bgHist.slice(-1)[0]?.bg||0,carbs:f.carbs,fp:(f.fat||0)+(f.protein||0),mtype:f.mealType||'normal',timing:'pre',mealBolus:window._photoDose,corr:0,iob:0,learnAdj:0,total:window._photoDose,split:!!window._photoSplitPlan,splitNow:window._photoSplitPlan?.now75||0,splitLater:window._photoSplitPlan?.later25||0,foodId:entry.id,foodName:f.foodName,ts:toISO(),fromPhoto:true};
+  doseLog.unshift(calc);
+  ST.set('log',doseLog.slice(0,200));
+  if(S.pmm) startPMM(entry.id,f.foodName,window._photoDose,window._photoSplitPlan);
+  if(window._photoSplitPlan){window._splitPending=window._photoSplitPlan;startSplitTimer();}
+  toast('✓ Photo dose accepted and logged');
+  renderLog();
+  updateStats();
+}
+
+function overridePhotoDose(){$('override-input').style.display='block';}
+
+function saveOverride(){
+  const ov=num('override-val');
+  if(!ov){alert('Enter dose.');return;}
+  const ai=window._photoDose||0;
+  // Learn from override
+  if(window._photoFood&&ov!==ai){
+    const foodId=foodDB.find(x=>x.name===window._photoFood.foodName)?.id;
+    if(foodId){
+      const p=patterns[foodId]||{adj:0,count:0,goodCount:0,splitHelpCount:0,recentOutcomes:[]};
+      p.count++;
+      const diff=ov-ai; // user used more or less
+      // Parameter 3 of learning: if user overrides and is right, adapt
+      // We'll know if they're right when post-meal readings come in
+      p.overrideHistory=p.overrideHistory||[];
+      p.overrideHistory.push({ai,user:ov,ts:toISO()});
+      if(p.overrideHistory.length>5) p.overrideHistory.shift();
+      // Tentatively adjust in direction of override
+      p.adj=rnd((p.adj||0)+diff*0.3,1);
+      p.adj=rnd(Math.max(-5,Math.min(5,p.adj)),1);
+      patterns[foodId]=p;
+      ST.set('pat',patterns);
+      toast('🧠 Override noted — system will verify with post-meal CGM');
+    }
+  }
+  $('override-input').style.display='none';
+  window._photoDose=ov;
+  $('photo-dose-val').textContent=ov;
+}
+
+// ================================================================
+// TOP-UP / CORRECTION CALCULATOR — PARAMETER 8
+// CF = 1800 ÷ TDD, correction when pred > 200 at 3.5h
+// ================================================================
+function calcTopUp(){
+  const bg=num('tu-bg')||(bgHist.slice(-1)[0]?.bg||0);
+  const hrs=num('tu-hrs',2);
+  if(!bg){alert('Enter BG.');return;}
+
+  const {bolusIOB}=getTotalActiveInsulin();
+  const roc=getRoC();
+  const p210=predictBG(210)||Math.round(bg+roc*210);
+  const p60=predictBG(60)||Math.round(bg+roc*60);
+  const cf=getCF();
+  const tdd=(S.dbasal||37)+(S.dbolus||27);
+
+  if(bg<70){$('tu-alerts').innerHTML='';alrt('tu-alerts','danger','🚨','<div class="ab-title">HYPO — Do NOT inject.</div><div class="ab-msg">Treat with 15g fast carbs first.</div>');$('tu-result').style.display='block';$('tu-dose').textContent='0';return;}
+
+  const rated=doseLog.filter(e=>e.outcome).length;
+  const safety=Math.min(1,0.5+rated/20);
+
+  let dose=0;
+  let reason='';
+
+  // Parameter 8: correction when projected > 200 at 3.5h
+  if(p210>200){
+    dose=rnd(Math.max(0,(p210-S.ctarget)/cf-bolusIOB)*safety,1);
+    reason=`Projected BG at 3.5h: ${p210} mg/dL (>200). CF: ${cf}. Target: ${S.ctarget}. IOB: ${rnd(bolusIOB,1)}U. Safety: ${Math.round(safety*100)}%.`;
+  } else if(bg>S.ctarget+40){
+    dose=rnd(Math.max(0,(bg-S.ctarget)/cf-bolusIOB)*safety,1);
+    reason=`Current BG ${bg} significantly above target ${S.ctarget}. CF: ${cf}. IOB: ${rnd(bolusIOB,1)}U.`;
+  } else {
+    dose=0;
+    reason=`No correction needed. BG ${bg}, predicted 3.5h: ${p210}, IOB adequate at ${rnd(bolusIOB,1)}U.`;
+  }
+
+  dose=Math.min(dose,4);
+  $('tu-dose').textContent=dose;
+  $('tu-reason').textContent=reason;
+  $('tu-alerts').innerHTML='';
+  if(dose<0.5) alrt('tu-alerts','ok','✅',`<div class="ab-msg"><strong>No correction needed.</strong> IOB and projected BG are acceptable.</div>`);
+  if(bolusIOB>3) alrt('tu-alerts','warn','⚠️','<div class="ab-msg"><strong>High IOB ('+rnd(bolusIOB,1)+'U).</strong> Dose reduced. Risk of stacking.</div>');
+  if(safety<0.8) alrt('tu-alerts','info','🧠','<div class="ab-msg">Algorithm safety at '+Math.round(safety*100)+'% — rate more outcomes to increase aggressiveness.</div>');
+
+  window._lastTopUp={dose,bg,roc:rnd(roc,1),iob:rnd(bolusIOB,1),p210,cf:rnd(cf,1),ts:toISO()};
+  $('tu-result').style.display='block';
+}
+
+function logTopUpDose(){
+  if(!window._lastTopUp) return;
+  corrLog.unshift({...window._lastTopUp, type:'manual'});
+  ST.set('corrlog',corrLog.slice(0,100));
+  if(window._lastTopUp.dose>0){
+    bgHist.push({bg:window._lastTopUp.bg,ts:window._lastTopUp.ts});
+    ST.set('bgh',bgHist.slice(0,500));
+  }
+  toast('✓ Correction logged');
+  renderCorrHistory();
+  updateStats();
+}
+
+function renderCorrHistory(){
+  const el=$('topup-history');
+  if(!corrLog.length){el.innerHTML='<p style="font-size:12px;color:var(--mu);text-align:center;padding:12px 0">No corrections logged.</p>';return;}
+  el.innerHTML=corrLog.slice(0,20).map(c=>{
+    const d=new Date(c.ts);
+    const ts=d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    return `<div class="log-entry"><div class="log-hdr"><div class="log-ttl">Correction · BG ${c.bg}</div><div class="log-dose">${c.dose}U</div></div><div class="log-meta">${ts} · CF ${c.cf} · IOB ${c.iob}U · Pred3.5h ${c.p210}</div></div>`;
+  }).join('');
+}
+
+// ================================================================
+// NIGHTSCOUT + CGM INTEGRATION
+// ================================================================
+async function fetchNS(){
+  const url=localStorage.getItem('m4_nsurl');
+  const token=localStorage.getItem('m4_nstoken');
+  if(!url) return;
+  try{
+    const res=await fetch(`${url}/api/v1/entries.json?count=12${token?'&token='+token:''}`);
+    const data=await res.json();
+    if(!data?.length) return;
+    const readings=data.reverse().map(e=>({bg:e.sgv||e.mbg,ts:new Date(e.date).toISOString(),dir:e.direction})).filter(e=>e.bg>20);
+    const existing=new Set(bgHist.map(e=>e.ts));
+    readings.filter(e=>!existing.has(e.ts)).forEach(e=>bgHist.push(e));
+    bgHist=bgHist.slice(-144); // 12 hours
+    ST.set('bgh',bgHist);
+
+    const latest=bgHist[bgHist.length-1];
+    if(!latest) return;
+    const roc=getRoC();
+    const age=Math.round((now()-new Date(latest.ts).getTime())/60000);
+    const arrows={'DoubleDown':'⬇⬇','SingleDown':'↓','FortyFiveDown':'↘','Flat':'→','FortyFiveUp':'↗','SingleUp':'↑','DoubleUp':'⬆⬆'};
+
+    // Update display
+    const cv=$('cgm-val');
+    cv.textContent=latest.bg;
+    cv.className='cgm-val '+(latest.bg<70?'lo':latest.bg<=100?'ok':latest.bg<=180?'ok':latest.bg<=250?'warn':'hi');
+    $('cgm-arrow').textContent=arrows[latest.dir]||'→';
+    $('cgm-meta').textContent=`${age}min ago · ${latest.dir||'Flat'}`;
+    $('cgm-roc').textContent=(roc>=0?'+':'')+roc;
+    $('cgm-roc').style.color=roc>1?'var(--d)':roc>0.3?'var(--w)':roc<-0.5?'var(--bl)':'var(--g)';
+
+    // Auto-fill forms
+    if($('bg')) $('bg').value=latest.bg;
+    if($('tu-bg')) $('tu-bg').value=latest.bg;
+    if($('ex-bg-start')) $('ex-bg-start').value=latest.bg;
+    const tmap={'DoubleDown':'-2','SingleDown':'-2','FortyFiveDown':'-1','Flat':'0','FortyFiveUp':'1','SingleUp':'2','DoubleUp':'2'};
+    if($('trend')) $('trend').value=tmap[latest.dir]||'0';
+
+    updatePredictions();
+    drawSparkline();
+    runLiveAdvisory(latest.bg, roc);
+    updateStats();
+
+    // Update PMM if active
+    if(pmmActive) renderPMMReadings();
+
+    setLoopStatus(true, `Live · ${age}m ago`);
+  }catch{setLoopStatus(false,'Connection error');}
+}
+
+function setLoopStatus(on,text){
+  $('ldot').className='ldot'+(on?' on':'');
+  $('lstat').textContent=text;
+}
+
+function connectNS(){
+  const url=($('ns-url')||{}).value?.trim();
+  const token=($('ns-token')||{}).value?.trim();
+  if(!url){alert('Enter Nightscout URL.');return;}
+  localStorage.setItem('m4_nsurl',url.replace(/\/$/,''));
+  if(token) localStorage.setItem('m4_nstoken',token);
+  fetchNS();
+  if(nsInterval) clearInterval(nsInterval);
+  nsInterval=setInterval(fetchNS,5*60*1000);
+  toast('✓ Nightscout connected');
+}
+
+// ================================================================
+// SPARKLINE
+// ================================================================
+function drawSparkline(){
+  const c=$('spark');if(!c) return;
+  c.width=c.offsetWidth||380;
+  const ctx=c.getContext('2d');const W=c.width,H=56;
+  ctx.clearRect(0,0,W,H);
+  const recent=bgHist.slice(-24);
+  if(recent.length<2) return;
+  const bgs=recent.map(e=>e.bg);
+  const mn=Math.min(...bgs,60),mx=Math.max(...bgs,200);
+  const rng=mx-mn||100;
+  const toY=bg=>H-((bg-mn)/rng)*(H-8)-4;
+  const toX=(i,n)=>(i/(n-1))*W;
+
+  // Range band
+  ctx.fillStyle='rgba(0,229,176,.05)';
+  ctx.fillRect(0,Math.min(toY(180),toY(70)),W,Math.abs(toY(70)-toY(180)));
+  // Lines
+  [70,180].forEach(v=>{ctx.beginPath();ctx.moveTo(0,toY(v));ctx.lineTo(W,toY(v));ctx.strokeStyle='rgba(0,229,176,.12)';ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);});
+
+  // Main line
+  const grad=ctx.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,'rgba(0,229,176,.5)');grad.addColorStop(1,'rgba(0,229,176,1)');
+  ctx.beginPath();recent.forEach((e,i)=>i===0?ctx.moveTo(toX(i,recent.length),toY(e.bg)):ctx.lineTo(toX(i,recent.length),toY(e.bg)));
+  ctx.strokeStyle=grad;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
+
+  // Prediction line
+  const preds=[15,30,60].map(t=>predictBG(t)).filter(Boolean);
+  if(preds.length){
+    ctx.setLineDash([3,3]);ctx.strokeStyle='rgba(167,139,250,.4)';ctx.lineWidth=1.5;
+    ctx.beginPath();
+    const lx=toX(recent.length-1,recent.length),ly=toY(recent[recent.length-1].bg);
+    ctx.moveTo(lx,ly);
+    preds.forEach((bg,i)=>ctx.lineTo(lx+(i+1)*(W-lx)/(preds.length+1),toY(bg)));
+    ctx.stroke();ctx.setLineDash([]);
+  }
+
+  // Current dot
+  const last=recent[recent.length-1];
+  ctx.beginPath();ctx.arc(toX(recent.length-1,recent.length),toY(last.bg),5,0,Math.PI*2);
+  ctx.fillStyle=last.bg<70?'var(--lo)':last.bg<=180?'var(--g)':last.bg<=250?'var(--w)':'var(--d)';
+  ctx.fill();ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg');ctx.lineWidth=2;ctx.stroke();
+}
+
+// ================================================================
+// TIR DASHBOARD
+// ================================================================
+function logManualBG(){
+  const bg=num('mbg');if(!bg||bg<20||bg>600){alert('Enter valid BG.');return;}
+  bgHist.push({bg,ts:toISO(),ctx:($('mbg-ctx')||{}).value});
+  ST.set('bgh',bgHist.slice(0,500));
+  $('mbg').value='';
+  toast('✓ BG logged');renderTIR();
+}
+
+function renderTIR(){
+  const cutoff=now()-7*24*3600000;
+  const all=bgHist.filter(e=>new Date(e.ts).getTime()>cutoff);
+  const n=all.length;
+  if(n<3){$('tir-pct').textContent='—';return;}
+  const inR=all.filter(e=>e.bg>=70&&e.bg<=180).length;
+  const hi=all.filter(e=>e.bg>180).length;
+  const lo=all.filter(e=>e.bg<70).length;
+  const vhi=all.filter(e=>e.bg>250).length;
+  const vlo=all.filter(e=>e.bg<54).length;
+  const pct=Math.round(inR/n*100);
+  const avg=Math.round(all.reduce((s,e)=>s+e.bg,0)/n);
+  $('tir-pct').textContent=pct+'%';
+  $('tir-avg').textContent=avg;
+  $('tir-hi').textContent=Math.round(hi/n*100)+'%';
+  $('tir-lo').textContent=Math.round(lo/n*100)+'%';
+  $('tir-n').textContent=n;
+  drawTIRRing(pct);
+  $('tir-bar').innerHTML=`<div style="flex:${vhi};background:var(--d)"></div><div style="flex:${hi-vhi};background:var(--w)"></div><div style="flex:${inR};background:var(--g)"></div><div style="flex:${lo-vlo};background:var(--lo)"></div><div style="flex:${vlo};background:var(--d)"></div>`;
+
+  const byDay={};
+  all.forEach(e=>{const d=new Date(e.ts).toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});if(!byDay[d])byDay[d]=[];byDay[d].push(e.bg);});
+  $('tir-days').innerHTML=Object.entries(byDay).slice(-7).reverse().map(([d,bgs])=>{
+    const a=Math.round(bgs.reduce((s,b)=>s+b,0)/bgs.length);
+    const p=Math.round(bgs.filter(b=>b>=70&&b<=180).length/bgs.length*100);
+    const c=p>=70?'var(--g)':p>=50?'var(--w)':'var(--d)';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b1);font-size:12px"><div><strong>${d}</strong><span style="font-family:var(--mono);font-size:9px;color:var(--mu);margin-left:8px">${bgs.length} readings · avg ${a}</span></div><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${c}">${p}%</div></div>`;
+  }).join('');
+}
+
+function drawTIRRing(pct){
+  const c=$('tir-canvas');if(!c) return;
+  const ctx=c.getContext('2d');ctx.clearRect(0,0,110,110);
+  ctx.beginPath();ctx.arc(55,55,40,0,Math.PI*2);ctx.strokeStyle='var(--b2)';ctx.lineWidth=10;ctx.stroke();
+  if(pct>0){ctx.beginPath();ctx.arc(55,55,40,-Math.PI/2,-Math.PI/2+(pct/100)*Math.PI*2);ctx.strokeStyle=pct>=70?'var(--g)':pct>=50?'var(--w)':'var(--d)';ctx.lineWidth=10;ctx.lineCap='round';ctx.stroke();}
+}
+
+// ================================================================
+// LOGGING + LEARNING
+// ================================================================
+function logDose(){
+  if(!window._lastCalc) return;
+
+  // FIX 2: Check for user override
+  const overrideVal = parseFloat($('override-dose-input')?.value);
+  const overrideReason = $('override-reason')?.value?.trim() || '';
+  const suggestedDose = window._lastCalc.total;
+  let finalDose = suggestedDose;
+  let wasOverridden = false;
+
+  if(overrideVal && overrideVal > 0 && overrideVal !== suggestedDose){
+    finalDose = overrideVal;
+    wasOverridden = true;
+
+    // Store override in patterns for learning
+    if(window._lastCalc.foodId){
+      const p = patterns[window._lastCalc.foodId] || {adj:0,count:0,goodCount:0,splitHelpCount:0,recentOutcomes:[],overrides:[]};
+      p.overrides = p.overrides || [];
+      p.overrides.push({
+        suggested: suggestedDose,
+        userDose: finalDose,
+        diff: rnd(finalDose - suggestedDose, 1),
+        reason: overrideReason,
+        ts: toISO()
+      });
+      if(p.overrides.length > 10) p.overrides.shift();
+
+      // Tentative learning — partial adjustment toward user choice
+      // Full learning happens after post-meal outcome is rated
+      const tentativeAdj = rnd((finalDose - suggestedDose) * 0.2, 1);
+      p.pendingOverrideAdj = rnd((finalDose - suggestedDose), 1); // stored for validation
+      patterns[window._lastCalc.foodId] = p;
+      ST.set('pat', patterns);
+    }
+    toast(`✓ Override: ${finalDose}U logged (suggested was ${suggestedDose}U)`);
+  } else {
+    toast('✓ Dose logged');
+  }
+
+  // Log with final dose
+  const entry = {
+    ...window._lastCalc,
+    total: finalDose,
+    suggestedDose,
+    wasOverridden,
+    overrideReason
+  };
+
+  doseLog.unshift(entry);
+  ST.set('log', doseLog.slice(0, 200));
+
+  if(entry.bg){ bgHist.push({bg:entry.bg, ts:entry.ts}); ST.set('bgh', bgHist.slice(0,500)); }
+  if(S.pmm && entry.foodId) startPMM(entry.foodId, entry.foodName, finalDose, window._splitPending);
+  if(window._splitPending) startSplitTimer();
+
+  // Clear override fields
+  if($('override-dose-input')) $('override-dose-input').value = '';
+  if($('override-reason')) $('override-reason').value = '';
+
+  renderLog(); updateStats();
+}
+
+function renderLog(){
+  const c=$('dose-log-list');
+  if(!doseLog.length){c.innerHTML='<p style="color:var(--mu);font-size:12px;text-align:center;padding:20px 0">No doses logged yet.</p>';return;}
+  c.innerHTML=doseLog.slice(0,50).map((e,i)=>{
+    const d=new Date(e.ts);
+    const ts=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+d.toLocaleDateString([],{month:'short',day:'numeric'});
+    const oc=e.outcome;
+    const ocHtml=oc?`<div style="font-size:9px;font-family:var(--mono);color:${oc==='good'?'var(--g)':oc==='high'?'var(--d)':'var(--lo)'}">OUTCOME: ${oc.toUpperCase()}</div>`:
+    `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--b1)"><span style="font-size:9px;color:var(--mu);font-family:var(--mono)">Rate: </span>
+    <button class="oc-btn good" onclick="rateOutcome(${i},'good')">✓ Good</button>
+    <button class="oc-btn high" onclick="rateOutcome(${i},'high')">↑ High</button>
+    <button class="oc-btn lo" onclick="rateOutcome(${i},'low')">↓ Low</button></div>`;
+    return `<div class="log-entry"><div class="log-hdr"><div class="log-ttl">${e.mtype==='correction'?'Correction':e.mtype+' meal'}${e.foodName?' · '+e.foodName:''}</div><div class="log-dose">${e.total}U</div></div><div class="log-meta">${ts} · BG ${e.bg} · Meal ${e.mealBolus}U · Corr ${e.corr}U · IOB −${e.iob}U${e.split?' · Split ✓':''}</div>${ocHtml}</div>`;
+  }).join('');
+}
+
+function rateOutcome(i,oc){
+  doseLog[i].outcome=oc;ST.set('log',doseLog);
+  const e=doseLog[i];
+  if(e.foodId&&S.learn){
+    const p=patterns[e.foodId]||{adj:0,count:0,goodCount:0,splitHelpCount:0,recentOutcomes:[]};
+    p.count++;p.recentOutcomes=p.recentOutcomes||[];p.recentOutcomes.push(oc);
+    if(p.recentOutcomes.length>10) p.recentOutcomes.shift();
+    const rhr=p.recentOutcomes.filter(o=>o==='high').length/Math.max(p.recentOutcomes.length,1);
+    const rlr=p.recentOutcomes.filter(o=>o==='low').length/Math.max(p.recentOutcomes.length,1);
+    if(oc==='good'){p.goodCount++;if(Math.abs(p.adj)>0.5) p.adj=rnd(p.adj*.85,1);}
+    else if(oc==='high'){p.adj=rnd((p.adj||0)+0.5+rhr,1);if(e.split) p.splitHelpCount=(p.splitHelpCount||0)+1;}
+    else{p.adj=rnd((p.adj||0)-0.4-rlr*.3,1);}
+    p.adj=rnd(Math.max(-5,Math.min(5,p.adj)),1);
+
+    // FIX 2: If this dose was overridden, validate the override
+    if(e.wasOverridden && p.pendingOverrideAdj !== undefined){
+      const overrideDiff = e.total - e.suggestedDose; // how much user changed
+      if(outcome === 'good'){
+        // User override was correct — learn from it more strongly
+        p.adj = rnd((p.adj||0) + overrideDiff * 0.5, 1);
+        p.adj = rnd(Math.max(-5, Math.min(5, p.adj)), 1);
+        toast('🧠 Override validated — algorithm learned your judgement!');
+      } else if(outcome === 'high' && overrideDiff < 0){
+        // User took less than suggested and ran high — revert override learning
+        p.adj = rnd((p.adj||0) + Math.abs(overrideDiff) * 0.3, 1);
+        toast('🧠 Override noted — suggested dose was better this time');
+      } else if(outcome === 'low' && overrideDiff > 0){
+        // User took more than suggested and went low — revert
+        p.adj = rnd((p.adj||0) - Math.abs(overrideDiff) * 0.3, 1);
+        toast('🧠 Override noted — suggested dose was better this time');
+      }
+      delete p.pendingOverrideAdj;
+      p.adj = rnd(Math.max(-5, Math.min(5, p.adj)), 1);
+    }
+
+    patterns[e.foodId]=p;ST.set('pat',patterns);
+    if(!e.wasOverridden) toast('🧠 Algorithm updated');
+  }
+  renderLog();renderPatterns();
+}
+
+function renderPatterns(){
+  const foods=foodDB.filter(f=>patterns[f.id]&&patterns[f.id].count>0);
+  const el=$('pattern-list');
+  if(!foods.length){el.innerHTML='<p style="color:var(--mu);font-size:12px;text-align:center;padding:14px 0">No patterns yet. Rate outcomes to train the algorithm.</p>';return;}
+  el.innerHTML=foods.sort((a,b)=>(patterns[b.id].count||0)-(patterns[a.id].count||0)).map(f=>{
+    const p=patterns[f.id];const adj=p.adj||0;
+    const rate=p.goodCount/p.count;const conf=Math.min(p.count/10,1);
+    const ac=adj===0?'var(--mu)':adj>0?'var(--w)':'var(--g)';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <div style="flex:1"><div style="font-weight:600">${f.name}</div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--mu);margin-top:2px">${p.count} sessions · ${Math.round(rate*100)}% good · ${Math.round(conf*100)}% conf</div>
+      <div style="height:3px;background:var(--b1);border-radius:2px;margin-top:3px;overflow:hidden"><div style="height:100%;width:${conf*100}%;background:var(--pu)"></div></div></div>
+      <div style="font-family:var(--mono);font-size:11px;color:${ac};text-align:right;margin-left:10px;min-width:70px">${adj===0?'Dose OK':(adj>0?'+':'')+adj+'U needed'}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderPMealLibrary(){
+  const foods=foodDB.filter(f=>patterns[f.id]?.postMeal);
+  const el=$('pmeal-library');
+  if(!foods.length){el.innerHTML='<p style="font-size:12px;color:var(--mu);text-align:center;padding:12px 0">No post-meal data yet. Enable Post-Meal CGM Monitoring in Settings.</p>';return;}
+  el.innerHTML=foods.map(f=>{
+    const p=patterns[f.id].postMeal;
+    const avg=h=>p['h'+h].length?Math.round(p['h'+h].reduce((a,b)=>a+b,0)/p['h'+h].length):null;
+    const a1=avg(1),a2=avg(2),a3=avg(3);
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--b1)">
+      <div style="font-weight:600;font-size:12px;margin-bottom:6px">${f.name}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        ${[1,2,3].map((h,i)=>{const a=[a1,a2,a3][i];return `<div style="background:var(--s2);border-radius:7px;padding:7px;text-align:center"><div style="font-family:var(--mono);font-size:8px;color:var(--mu)">+${h}h delta</div><div style="font-family:var(--mono);font-size:16px;font-weight:700;color:${a===null?'var(--mu)':a>40?'var(--d)':a>20?'var(--w)':'var(--g)'}">${a!==null?(a>=0?'+':'')+a:'—'}</div></div>`;}).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStats(){
+  // TDD + CF
+  const tdd=(S.dbasal||37)+(S.dbolus||27);
+  const cf=rnd(1800/tdd,1);
+  $('cf-display').textContent=cf;
+  $('cf-detail').textContent=cf;
+  $('tdd-display').textContent=tdd;
+  if($('tdd-calc')){$('tdd-calc').textContent=tdd;$('tdd-calc2').textContent=tdd;$('cf-calc').textContent=cf;}
+
+  // TIR today
+  const cutoff=now()-24*3600000;
+  const today=bgHist.filter(e=>new Date(e.ts).getTime()>cutoff);
+  if(today.length>2) $('tir-today').textContent=Math.round(today.filter(e=>e.bg>=70&&e.bg<=180).length/today.length*100)+'%';
+
+  // Avg 7d
+  const wk=bgHist.filter(e=>new Date(e.ts).getTime()>now()-7*24*3600000);
+  if(wk.length>2) $('avg7d').textContent=Math.round(wk.reduce((s,e)=>s+e.bg,0)/wk.length);
+
+  // Stats
+  const rated=doseLog.filter(e=>e.outcome).length;
+  $('st-doses').textContent=doseLog.length;
+  $('st-rated').textContent=rated;
+  $('st-acc').textContent=rated>0?Math.round(doseLog.filter(e=>e.outcome==='good').length/rated*100)+'%':'—';
+  $('st-foods').textContent=Object.keys(patterns).length;
+}
+
+// ================================================================
+// BASAL TEST
+// ================================================================
+function runBasalTest(){
+  const f=num('b-fasting'),b=num('b-bedtime'),t=num('b-3am');
+  if(!f&&!b){alert('Enter at least fasting and bedtime BG.');return;}
+  if(f) basalLog.push({type:'fasting',bg:f,ts:toISO()});
+  if(b) basalLog.push({type:'bedtime',bg:b,ts:toISO()});
+  if(t) basalLog.push({type:'3am',bg:t,ts:toISO()});
+  ST.set('bsl',basalLog.slice(0,100));
+  let html='';
+  if(f&&b){const d=f-b;if(Math.abs(d)<=20)html=`<div class="alert-banner ok"><div class="ab-icon">✅</div><div class="ab-body"><div class="ab-title">Basal Well Set</div><div class="ab-msg">Overnight stability within 20 mg/dL.</div></div></div>`;
+  else if(d>20)html=`<div class="alert-banner warn"><div class="ab-icon">🌅</div><div class="ab-body"><div class="ab-title">Dawn Phenomenon Likely</div><div class="ab-msg">Fasting (${f}) is ${d} mg/dL above bedtime (${b}). Consider +1–2U morning Tresiba.</div></div></div>`;
+  else html=`<div class="alert-banner warn"><div class="ab-icon">📉</div><div class="ab-body"><div class="ab-title">Overnight Drop</div><div class="ab-msg">Fasting (${f}) is ${Math.abs(d)} mg/dL below bedtime. Morning Tresiba may be too high.</div></div></div>`;}
+  if(t&&t<70) html+=`<div class="alert-banner danger"><div class="ab-icon">🚨</div><div class="ab-body"><div class="ab-title">3AM Hypo!</div><div class="ab-msg">BG ${t} at 3AM. Evening Tresiba too high — reduce urgently.</div></div></div>`;
+  $('basal-result').innerHTML=html;
+  toast('✓ Basal test logged');
+}
+
+// ================================================================
+// FOOD DB
+// ================================================================
+function searchFood(){
+  const q=($('fsearch')||{}).value?.toLowerCase().trim();
+  const sug=$('fsugg');
+  if(!q){sug.style.display='none';return;}
+  const m=foodDB.filter(f=>f.name.toLowerCase().includes(q)).slice(0,8);
+  if(!m.length){sug.style.display='none';return;}
+  sug.style.display='block';
+  sug.innerHTML=m.map(f=>`<div onclick="selectFood('${f.id}')" style="padding:7px 11px;cursor:pointer;border-bottom:1px solid var(--b1);font-size:12px" onmouseover="this.style.background='var(--b1)'" onmouseout="this.style.background=''">
+    <strong>${f.name}</strong><span style="color:var(--mu);font-family:var(--mono);font-size:9px;margin-left:7px">${f.carbs}g · ${f.portion}</span>${getReactBadge(f.id)}</div>`).join('');
+}
+
+function selectFood(id){
+  const f=foodDB.find(x=>x.id===id);if(!f) return;
+  selectedFood=f;
+  $('fsearch').value=f.name;$('fsugg').style.display='none';
+  $('carbs').value=f.carbs;$('fp').value=(f.fat||0)+(f.protein||0);
+  if(f.dose){$('bval').value=f.dose;$('bdisplay').textContent=f.dose+' U';}
+  if(f.gi==='high') $('mtype').value='high-gi';
+  else if(f.gi==='low') $('mtype').value='low-gi';
+  else $('mtype').value='normal';
+  $('sf-name').textContent=f.name;
+  $('sf-detail').textContent=`${f.carbs}g carbs · ${f.fat||0}g fat · ${f.protein||0}g protein · ${f.portion}`;
+  const p=patterns[id];
+  let ins='';
+  if(p&&p.count>=2){
+    const rate=p.goodCount/p.count;
+    if(rate<0.5) ins=`<div style="font-size:9px;color:var(--w);font-family:var(--mono);margin-top:3px">⚠ Often high (${p.count} sessions) — +${rnd(Math.abs(p.adj||0),1)}U extra applied</div>`;
+    else if(rate>0.8) ins=`<div style="font-size:9px;color:var(--g);font-family:var(--mono);margin-top:3px">✓ Good control (${Math.round(rate*100)}% good outcomes)</div>`;
+    if(p.postMeal?.h2?.length>=3){const avg2=Math.round(p.postMeal.h2.reduce((a,b)=>a+b,0)/p.postMeal.h2.length);ins+=`<div style="font-size:9px;color:var(--mu);font-family:var(--mono);margin-top:2px">Avg 2h rise: ${avg2>=0?'+':''} ${avg2} mg/dL</div>`;}
+  }
+  $('sf-insight').innerHTML=ins;
+  $('sel-food-card').style.display='block';
+}
+
+function clearFood(){selectedFood=null;$('fsearch').value='';$('sel-food-card').style.display='none';}
+
+function getReactBadge(id){
+  const p=patterns[id];
+  if(!p||p.count<2) return '<span style="color:var(--mu);font-size:8px;font-family:var(--mono);margin-left:6px">learning</span>';
+  const r=p.goodCount/p.count;
+  return r>0.7?'<span style="color:var(--g);font-size:8px;font-family:var(--mono);margin-left:6px">✓ Good</span>':
+         r>0.4?'<span style="color:var(--w);font-size:8px;font-family:var(--mono);margin-left:6px">~ Variable</span>':
+         '<span style="color:var(--d);font-size:8px;font-family:var(--mono);margin-left:6px">⚠ Often high</span>';
+}
+
+function saveFood(){
+  const f={id:uid(),name:$('fn-name').value.trim(),portion:$('fn-portion').value.trim()||'1 serving',carbs:num('fn-carbs'),fat:num('fn-fat'),protein:num('fn-protein'),gi:$('fn-gi').value,dose:num('fn-dose')||S.base,notes:$('fn-notes').value.trim()};
+  if(!f.name){alert('Enter food name.');return;}
+  foodDB.push(f);ST.set('foods',foodDB);
+  ['fn-name','fn-portion','fn-notes'].forEach(id=>$(id).value='');
+  ['fn-carbs','fn-fat','fn-protein','fn-dose'].forEach(id=>$(id).value='');
+  renderFoodDB();toast('✓ Food saved');
+}
+
+function renderFoodDB(){
+  const filter=($('ffilter')||{}).value?.toLowerCase()||'';
+  const foods=foodDB.filter(f=>!filter||f.name.toLowerCase().includes(filter));
+  $('fdcount').textContent=foodDB.length;
+  $('food-db-list').innerHTML=foods.map(f=>`<div class="food-item"><div><div class="fname">${f.name}${f.fromPhoto?' 📸':''}</div><div class="fdetail">${f.carbs}g carbs · ${f.fat||0}g fat · ${f.protein||0}g protein · ${f.portion} · ~${f.dose}U ${getReactBadge(f.id)}</div>${f.notes?`<div class="fdetail" style="font-style:italic">"${f.notes}"</div>`:''}</div><button onclick="deleteFood('${f.id}')" style="background:none;border:none;color:var(--mu);cursor:pointer;font-size:14px">🗑</button></div>`).join('');
+}
+
+function deleteFood(id){if(!confirm('Delete?'))return;foodDB=foodDB.filter(f=>f.id!==id);ST.set('foods',foodDB);renderFoodDB();}
+
+function addFoodDB(){if(selectedFood){toast('Already in DB');return;}const name=$('fsearch').value.trim();if(!name)return;const f={id:uid(),name,portion:'1 serving',carbs:num('carbs'),fat:Math.round(num('fp')*.5),protein:Math.round(num('fp')*.5),gi:'medium',dose:num('bval')||S.base,notes:''};foodDB.push(f);ST.set('foods',foodDB);toast('✓ Added to food DB');}
+
+function defaultFoods(){return[
+  // ---- ROTI BASED (9U) ----
+  {id:'f1',name:'Roti / chapati (2)',portion:'2 medium',carbs:40,fat:4,protein:6,gi:'medium',dose:9,notes:'Standard lunch roti — 9U'},
+  {id:'f2',name:'Roti + dal (lunch)',portion:'2 roti + 1 bowl dal',carbs:62,fat:6,protein:16,gi:'medium',dose:9,notes:'Roti with dal — steady rise, 9U'},
+  {id:'f3',name:'Roti + sabzi (lunch)',portion:'2 roti + 1 bowl sabzi',carbs:55,fat:8,protein:10,gi:'medium',dose:9,notes:'Roti with vegetable curry — 9U'},
+  {id:'f4',name:'Roti + dal + sabzi',portion:'2 roti + dal + sabzi',carbs:75,fat:10,protein:18,gi:'medium',dose:9,notes:'Full roti meal — 9U. Monitor 2h.'},
+  // ---- RICE BASED (10U) ----
+  {id:'f5',name:'White rice (1 plate)',portion:'~200g cooked',carbs:60,fat:2,protein:5,gi:'high',dose:10,notes:'Plain rice — fast spike, split bolus. 10U'},
+  {id:'f6',name:'Rice + dal combo',portion:'1 plate rice + 1 bowl dal',carbs:82,fat:4,protein:15,gi:'high',dose:10,notes:'Classic split bolus candidate. 10U — 75% now, 25% +2hrs'},
+  {id:'f7',name:'Rice + dal + sabzi',portion:'Full thali',carbs:95,fat:8,protein:18,gi:'high',dose:10,notes:'Full rice meal — split bolus. 10U'},
+  {id:'f8',name:'Biryani (1 plate)',portion:'1 plate ~250g',carbs:65,fat:15,protein:20,gi:'high',dose:10,notes:'Rice + fat — dual wave. Split bolus. 10U'},
+  {id:'f9',name:'Khichdi (1 bowl)',portion:'1 large bowl',carbs:55,fat:6,protein:12,gi:'medium',dose:10,notes:'Rice + dal combined — 10U'},
+  // ---- PARATHA BASED (11U) ----
+  {id:'f10',name:'Plain paratha (2)',portion:'2 medium paratha',carbs:60,fat:14,protein:8,gi:'medium',dose:11,notes:'High fat — delayed spike. Split bolus. 11U'},
+  {id:'f11',name:'Aloo paratha (2)',portion:'2 stuffed paratha',carbs:70,fat:16,protein:9,gi:'medium',dose:11,notes:'Potato filling — higher carb. 11U split'},
+  {id:'f12',name:'Paneer paratha (2)',portion:'2 stuffed paratha',carbs:58,fat:20,protein:16,gi:'medium',dose:11,notes:'High fat + protein — long tail. 11U split'},
+  {id:'f13',name:'Gobi paratha (2)',portion:'2 stuffed paratha',carbs:62,fat:15,protein:9,gi:'medium',dose:11,notes:'Cauliflower stuffed — 11U'},
+  {id:'f14',name:'Paratha + curd',portion:'2 paratha + 1 bowl curd',carbs:65,fat:18,protein:14,gi:'medium',dose:11,notes:'Fat+protein delays — 11U split bolus'},
+  // ---- OTHER ITEMS (12U) ----
+  {id:'f15',name:'Puri bhaji (4 puri)',portion:'4 puri + 1 bowl bhaji',carbs:80,fat:22,protein:10,gi:'high',dose:12,notes:'Fried — very fast spike then fat tail. 12U split'},
+  {id:'f16',name:'Chole bhature (1 plate)',portion:'2 bhature + chole',carbs:90,fat:25,protein:18,gi:'high',dose:12,notes:'Heavy meal — always split. 12U'},
+  {id:'f17',name:'Rajma chawal (full plate)',portion:'1 cup rajma + rice',carbs:88,fat:6,protein:20,gi:'medium',dose:12,notes:'Large meal — 12U. 75/25 split'},
+  {id:'f18',name:'Dal makhani + rice',portion:'1 bowl dal + rice',carbs:85,fat:18,protein:18,gi:'medium',dose:12,notes:'Rich dal — fat delays peak. 12U split'},
+  {id:'f19',name:'Paneer curry + rice',portion:'1 plate',carbs:75,fat:20,protein:22,gi:'medium',dose:12,notes:'High fat + protein — dual wave. 12U'},
+  {id:'f20',name:'Full thali (special)',portion:'Complete thali',carbs:100,fat:20,protein:22,gi:'high',dose:12,notes:'Large full meal — always split 12U. Watch 3hr mark'},
+  // ---- BREAKFAST ----
+  {id:'f21',name:'Idli (3) + sambar',portion:'3 idli + sambar',carbs:48,fat:3,protein:9,gi:'medium',dose:7,notes:'Fermented — moderate rise'},
+  {id:'f22',name:'Dosa (1 plain)',portion:'1 large dosa',carbs:45,fat:4,protein:7,gi:'medium',dose:7,notes:''},
+  {id:'f23',name:'Poha (1 bowl)',portion:'1 bowl',carbs:40,fat:5,protein:5,gi:'medium',dose:7,notes:'Moderate rise'},
+  {id:'f24',name:'Upma (1 bowl)',portion:'1 bowl',carbs:38,fat:6,protein:6,gi:'medium',dose:6,notes:''},
+  {id:'f25',name:'Oats porridge',portion:'1 bowl',carbs:35,fat:4,protein:8,gi:'low',dose:5,notes:'Very steady — no split needed'},
+  {id:'f26',name:'Bread toast (2 slices)',portion:'2 slices + butter',carbs:32,fat:8,protein:6,gi:'high',dose:5,notes:'Fast spike'},
+  // ---- SNACKS + LIGHT ----
+  {id:'f27',name:'Fruit (banana)',portion:'1 medium',carbs:27,fat:0,protein:1,gi:'high',dose:4,notes:'Fast spike'},
+  {id:'f28',name:'Dal (only)',portion:'1 bowl',carbs:22,fat:2,protein:10,gi:'low',dose:3,notes:'Low GI — slow rise'},
+  {id:'f29',name:'Salad + raita',portion:'1 plate',carbs:12,fat:4,protein:6,gi:'low',dose:2,notes:'Very low carb'},
+  {id:'f30',name:'Chicken / egg (only)',portion:'1 serving',carbs:3,fat:10,protein:30,gi:'low',dose:2,notes:'Very low carb — minimal dose'},
+];}
+
+// ================================================================
+// SPLIT TIMER
+// ================================================================
+function startSplitTimer(){
+  const sp=window._splitPending;if(!sp) return;
+  const mins=120;
+  const end=now()+mins*60000;
+  ST.set('spt',{end,later:sp.later25,reason:sp.splitReason});
+  renderSplitTimer(end,sp.later25,sp.splitReason);
+  if('Notification' in window&&Notification.permission==='default') Notification.requestPermission();
+  if(splitTimer) clearInterval(splitTimer);
+  splitTimer=setInterval(()=>tickTimer(end,sp.later25,sp.splitReason),1000);
+  toast('⏱ Split timer — '+sp.later25+'U in 2hrs');
+}
+function renderSplitTimer(end,later,reason){
+  const w=$('split-active');w.style.display='block';
+  w.innerHTML=`<div class="split-timer"><div style="font-family:var(--mono);font-size:8px;color:var(--pu);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">💜 Split Dose Timer</div><div class="timer-clock" id="tclock">--:--</div><div style="font-size:10px;color:var(--mu);font-family:var(--mono);margin-top:4px">until ${later}U second dose</div><button class="btn sec btn-sm" style="margin-top:10px" onclick="cancelTimer()">Cancel</button></div>`;
+  tickTimer(end,later,reason);
+}
+function tickTimer(end,later,reason){
+  const rem=Math.max(0,Math.round((end-now())/1000));
+  const cl=$('tclock');if(cl) cl.textContent=`${String(Math.floor(rem/60)).padStart(2,'0')}:${String(rem%60).padStart(2,'0')}`;
+  if(rem===0){clearInterval(splitTimer);$('notif-title').textContent='Second Dose Due!';$('notif-msg').textContent=`Inject ${later}U NovoRapid now.\n${reason}`;$('notif-overlay').style.display='flex';notify('💉 Second Dose Due',`Inject ${later}U NovoRapid now.`,'split');playBeep();ST.set('spt',null);}
+}
+function cancelTimer(){if(splitTimer){clearInterval(splitTimer);splitTimer=null;}$('split-active').style.display='none';ST.set('spt',null);toast('Timer cancelled');}
+function dismissNotif(){$('notif-overlay').style.display='none';$('split-active').style.display='none';}
+function playBeep(){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();[0,200,400,600].forEach(t=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=880;g.gain.setValueAtTime(0,ctx.currentTime+t/1000);g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+t/1000+0.05);g.gain.linearRampToValueAtTime(0,ctx.currentTime+t/1000+0.3);o.start(ctx.currentTime+t/1000);o.stop(ctx.currentTime+t/1000+0.35);});}catch{}}
+function resumeTimer(){const s=ST.get('spt');if(!s?.end) return;if(now()>=s.end){ST.set('spt',null);return;}renderSplitTimer(s.end,s.later,s.reason);if(splitTimer) clearInterval(splitTimer);splitTimer=setInterval(()=>tickTimer(s.end,s.later,s.reason),1000);}
+
+// ================================================================
+// AI ADVISORY
+// ================================================================
+async function getBolusAdvisory(d){
+  const ai=$('ai-box');ai.className='ai-box load';ai.innerHTML='<div class="dots"><span></span><span></span><span></span></div><span style="margin-left:6px">Generating advisory…</span>';
+  const roc=getRoC();const p60=predictBG(60);const{bolusIOB}=getTotalActiveInsulin();
+  const rated=doseLog.filter(e=>e.outcome).length;
+  const gp=rated>0?Math.round(doseLog.filter(e=>e.outcome==='good').length/rated*100):null;
+  const fp=d.foodId&&patterns[d.foodId]?`Food: ${patterns[d.foodId].count} sessions, adj ${patterns[d.foodId].adj}U, ${Math.round(patterns[d.foodId].goodCount/patterns[d.foodId].count*100)}% good`:'No food pattern';
+  const prompt=`Closed-loop MDI advisory. Patient: Tresiba ${S.basalAM+S.basalPM}U total | ICR ${S.icr} | ISF ${S.isf} | CF ${getCF()} | Target ${S.target}
+BG: ${d.bg} · RoC: ${roc}/min · Pred60: ${p60||'—'} · IOB: ${rnd(bolusIOB,1)}U · Basal: ${calcTresibaRate().totalRate}U/hr
+Dose: ${d.total}U (meal ${d.mealBolus}+corr ${d.corr}+learn ${d.learnAdj}) · Split: ${d.split?d.splitNow+'U+'+d.splitLater+'U':'No'}
+${fp} · Accuracy: ${gp!==null?gp+'%':'-'}
+3 sentences: 1) justify dose factors 2) exact action NOW 3) what to watch for and when to recheck. Clinical, direct.`;
+  try{const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});const data=await res.json();const text=data.content?.find(b=>b.type==='text')?.text||'Advisory unavailable.';ai.className='ai-box';ai.innerHTML=`<div class="ai-lbl">🤖 Loop Advisory</div>${text}`;}catch{ai.className='ai-box';ai.innerHTML='<div class="ai-lbl">Advisory</div>Could not connect.';}
+}
+
+async function getDeepAnalysis(){
+  const box=$('deep-ai');box.style.display='block';box.className='ai-box load';box.innerHTML='<div class="dots"><span></span><span></span><span></span></div><span style="margin-left:6px">Deep analysis…</span>';
+  const tdd=(S.dbasal||37)+(S.dbolus||27);
+  const rated=doseLog.filter(e=>e.outcome).length;
+  const wk=bgHist.filter(e=>new Date(e.ts).getTime()>now()-7*24*3600000);
+  const tir=wk.length>2?Math.round(wk.filter(e=>e.bg>=70&&e.bg<=180).length/wk.length*100):null;
+  const fs=Object.entries(patterns).map(([id,p])=>{const f=foodDB.find(x=>x.id===id);return `${f?.name||id}: ${p.count}x adj=${p.adj}U good=${Math.round(p.goodCount/p.count*100)}%`;}).join('\n');
+  const wls=Object.entries(walkLearning).map(([t,w])=>`${t}: ${w.sessions.length} walks, avg drop ${rnd(w.avgDropPerMin*30,1)} mg/dL per 30min`).join('\n');
+  const prompt=`Analyse MDI closed-loop algorithm performance vs pump algorithm benchmark (goal: ≥70% TIR, <25% highs, <5% lows).
+
+Patient: ICR ${S.icr} | ISF ${S.isf} | CF ${getCF()} | Target ${S.target} | TDD ${tdd}U
+Doses: ${doseLog.length} | Rated: ${rated} | Good: ${rated>0?Math.round(doseLog.filter(e=>e.outcome==='good').length/rated*100)+'%':'-'}
+TIR 7 days: ${tir!==null?tir+'%':'insufficient'} | Corrections: ${corrLog.length}
+Food patterns:\n${fs||'None'}
+Walk learning:\n${wls||'None'}
+
+5-sentence analysis: 1) overall vs pump benchmark 2) which foods need attention 3) ICR/ISF adequacy 4) one specific change this week 5) what to prioritise next in algorithm development. Reference 780G/Control-IQ benchmarks.`;
+  try{const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:900,messages:[{role:'user',content:prompt}]})});const data=await res.json();const text=data.content?.find(b=>b.type==='text')?.text||'Analysis unavailable.';box.className='ai-box';box.innerHTML=`<div class="ai-lbl">🧠 Algorithm vs Pump Benchmark</div>${text}`;}catch{box.className='ai-box';box.innerHTML='Could not connect.';}
+}
+
+// ================================================================
+// SETTINGS
+// ================================================================
+function saveSettings(){
+  S={icr:num('s-icr')||8,isf:num('s-isf')||27,target:num('s-target')||100,ctarget:num('s-ctarget')||130,base:num('s-base')||9,max:num('s-max')||18,dbasal:num('s-dbasal')||37,dbolus:num('s-dbolus')||27,dia:4.5,learn:$('s-learn').checked,topup:$('s-topup').checked,split:$('s-split').checked,pmm:$('s-pmm').checked,lockout:$('s-lockout').checked,walklearn:$('s-walklearn').checked,basalAM:num('s-bam')||21,basalAMt:$('s-bam-t').value||'05:30',basalPM:num('s-bpm')||16,basalPMt:$('s-bpm-t').value||'17:30',alertEmail:$('s-email')?.value?.trim()||'arundayal@gmail.com',alertWhatsApp:$('s-whatsapp')?.value?.trim()||'',emailjsService:$('s-ejsservice')?.value?.trim()||'',emailjsTemplate:$('s-ejstemplate')?.value?.trim()||'',emailjsKey:$('s-ejskey')?.value?.trim()||''};
+  ST.set('s',S);$('setsaved').style.display='block';setTimeout(()=>$('setsaved').style.display='none',2200);updateStats();toast('✓ Settings saved');
+}
+
+// Update TDD calc live
+function updateTDDCalc(){
+  const tdd=(num('s-dbasal')||37)+(num('s-dbolus')||27);
+  if($('tdd-calc')){$('tdd-calc').textContent=tdd;$('tdd-calc2').textContent=tdd;$('cf-calc').textContent=rnd(1800/tdd,1);}
+}
+['s-dbasal','s-dbolus'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',updateTDDCalc);});
+
+function adj(d){const el=$('bval');let v=parseInt(el.value)||9;v=Math.max(1,Math.min(30,v+d));el.value=v;$('bdisplay').textContent=v+' U';}
+
+function resetAll(){if(!confirm('Reset all learning data?'))return;patterns={};ST.set('pat',patterns);walkLearning={};ST.set('wlearn',walkLearning);renderPatterns();renderPMealLibrary();renderWalkLearning();toast('Reset complete');}
+
+function notify(title,body,tag){if('Notification' in window&&Notification.permission==='granted'){new Notification(title,{body,tag});}}
+
+// ================================================================
+// BASAL REMINDERS
+// ================================================================
+function checkBasalReminders(){
+  const n=new Date();
+  const hm=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+  [S.basalAMt,S.basalPMt].forEach((t,i)=>{if(hm===t) notify(`💉 Tresiba — ${i===0?'Morning':'Evening'} Dose`,`${i===0?S.basalAM:S.basalPM}U now`,`basal-${i}`);});
+}
+setInterval(checkBasalReminders,60000);
+
+// Load EmailJS if key is configured
+function loadEmailJS(){
+  if(!S.emailjsKey) return;
+  if(typeof emailjs !== 'undefined'){ emailjs.init(S.emailjsKey); return; }
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+  script.onload = ()=>{ if(S.emailjsKey) emailjs.init(S.emailjsKey); };
+  document.head.appendChild(script);
+}
+loadEmailJS();
+
+function testAlerts(){
+  const bg = bgHist.slice(-1)[0]?.bg||185;
+  toast('🔔 Sending test alerts…');
+  sendMissedDoseEmail('Morning (TEST)', 21, 8.5);
+  setTimeout(()=>sendWhatsAppAlert('Morning (TEST)', 21, 8.5), 2000);
+}
+if('Notification' in window&&Notification.permission==='default') setTimeout(()=>Notification.requestPermission(),3000);
+
+// Update insulin flows every 5 minutes
+function tickFlows(){updateTresibaDisplay();updateBolusDisplay();}
+setInterval(tickFlows,5*60*1000);
+
+// ================================================================
+// INIT
+// ================================================================
+// Load settings into form
+const sf={icr:8,isf:27,target:100,ctarget:130,base:9,max:18,dbasal:37,dbolus:27};
+Object.entries(sf).forEach(([k,def])=>{const el=$('s-'+k);if(el)el.value=S[k]||def;});
+['learn','topup','split','pmm','lockout','walklearn'].forEach(k=>{const el=$('s-'+k);if(el)el.checked=S[k]!==false;});
+const bam=$('s-bam');if(bam)bam.value=S.basalAM||21;
+const bamt=$('s-bam-t');if(bamt)bamt.value=S.basalAMt||'05:30';
+const bpm=$('s-bpm');if(bpm)bpm.value=S.basalPM||16;
+const bpmt=$('s-bpm-t');if(bpmt)bpmt.value=S.basalPMt||'17:30';
+
+// Pre-fill NS
+// Hardcoded Nightscout connection - always connects automatically
+localStorage.setItem('m4_nsurl','https://p01--nightscout--msxd652kphv8.code.run');
+localStorage.setItem('m4_nstoken','libre-dcf6acca49bf4069');
+localStorage.setItem('v5_url','https://p01--nightscout--msxd652kphv8.code.run');
+localStorage.setItem('v5_tok','libre-dcf6acca49bf4069');
+localStorage.setItem('m5_nsurl','https://p01--nightscout--msxd652kphv8.code.run');
+localStorage.setItem('m5_nstoken','libre-dcf6acca49bf4069');
+localStorage.setItem('v5_url','https://p01--nightscout--msxd652kphv8.code.run');
+localStorage.setItem('v5_tok','libre-dcf6acca49bf4069');
+const snu=localStorage.getItem('m4_nsurl');const snt=localStorage.getItem('m4_nstoken');
+if(snu&&$('ns-url')) $('ns-url').value=snu;if(snt&&$('ns-token')) $('ns-token').value=snt;
+
+// Set Tresiba time default
+const trtime=$('tr-time');if(trtime)trtime.value=new Date().toTimeString().slice(0,5);
+
+renderFoodDB();renderPatterns();resumeTimer();drawTIRRing(0);
+updateStats();tickFlows();updateTDDCalc();
+
+// Restore PMM if active
+if(pmmActive&&pmmActive.startTs){
+  const elapsed=(now()-new Date(pmmActive.startTs).getTime())/3600000;
+  if(elapsed<3.2){$('pmm-food-name').textContent=pmmActive.foodName||'Meal';$('pmm-active').style.display='block';renderPMMReadings();schedulePMMChecks();}
+  else{pmmActive=null;ST.set('pmma',null);}
+}
+
+// HARDCODED NS — connects automatically, no setup needed
+localStorage.setItem('m4_nsurl','https://p01--nightscout--msxd652kphv8.code.run');
+localStorage.setItem('m4_nstoken','libre-dcf6acca49bf4069');
+fetchNS();
+if(nsInterval) clearInterval(nsInterval);
+nsInterval = setInterval(fetchNS, 5*60*1000);
+
+window.addEventListener('resize',()=>{if(bgHist.length>1) drawSparkline();});
+
+// ================================================================
+// SETTINGS OVERLAY — MISSING FUNCTIONS ADDED
+// ================================================================
+function openSettings(){
+  var ov = document.getElementById('settings-overlay');
+  if(!ov){ alert('Settings not found. Please refresh page.'); return; }
+  ov.style.cssText = 'display:block!important;position:fixed;top:0;left:0;right:0;bottom:0;background:#060910;z-index:99999;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0;';
+  // Load saved values into form
+  var nsUrl = localStorage.getItem('m4_nsurl') || '';
+  var nsToken = localStorage.getItem('m4_nstoken') || '';
+  var setVal = function(id, val){ var el=document.getElementById(id); if(el) el.value=val; };
+  setVal('ov-ns-url', nsUrl);
+  setVal('ov-ns-token', nsToken);
+  setVal('ov-icr', S.icr||8);
+  setVal('ov-isf', S.isf||27);
+  setVal('ov-target', S.target||100);
+  setVal('ov-ctarget', S.ctarget||130);
+  setVal('ov-dbasal', S.dbasal||37);
+  setVal('ov-dbolus', S.dbolus||27);
+  setVal('ov-base', S.base||9);
+  setVal('ov-max', S.max||18);
+  setVal('ov-bam', S.basalAM||21);
+  setVal('ov-bam-t', S.basalAMt||'05:30');
+  setVal('ov-bpm', S.basalPM||16);
+  setVal('ov-bpm-t', S.basalPMt||'17:30');
+  setVal('ov-email', S.alertEmail||'arundayal@gmail.com');
+  setVal('ov-whatsapp', S.alertWhatsApp||'');
+  updateOvTDD();
+  ov.style.cssText = 'display:block !important; position:fixed; top:0; left:0; right:0; bottom:0; background:#060910; z-index:99999; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0;';
+  ov.scrollTop = 0;
+}
+
+function closeSettings(){
+  var ov = document.getElementById('settings-overlay');
+  if(ov) ov.style.cssText = 'display:none !important;';
+}
+
+function openSettingsDirectly(){ openSettings(); }
+
+function updateOvTDD(){
+  var b = parseFloat((document.getElementById('ov-dbasal')||{}).value)||37;
+  var bo = parseFloat((document.getElementById('ov-dbolus')||{}).value)||27;
+  var tdd = b+bo;
+  var cf = Math.round(1800/tdd*10)/10;
+  var el = document.getElementById('ov-tdd-display');
+  if(el) el.textContent = 'TDD = '+tdd+'U \u00b7 CF = 1800 \u00f7 '+tdd+' = '+cf+' mg/dL/U';
+}
+
+async function connectNSFromOverlay(){
+  var url = (document.getElementById('ov-ns-url')||{}).value||'';
+  var token = (document.getElementById('ov-ns-token')||{}).value||'';
+  var status = document.getElementById('ov-ns-status');
+  url = url.trim().replace(/\/$/,'');
+  if(!url){ if(status){status.style.color='var(--d)';status.textContent='Enter Nightscout URL first';} return; }
+  if(status){ status.style.color='var(--mu)'; status.textContent='Connecting...'; }
+  try{
+    var res = await fetch(url+'/api/v1/entries/current.json'+(token?'?token='+token:''));
+    var data = await res.json();
+    if(data && data.length){
+      var bg = data[0].sgv||data[0].mbg;
+      if(status){ status.style.color='var(--g)'; status.textContent='\u2713 Connected! BG: '+bg+' mg/dL'; }
+      localStorage.setItem('m4_nsurl', url);
+      if(token) localStorage.setItem('m4_nstoken', token);
+    } else {
+      if(status){ status.style.color='var(--w)'; status.textContent='Connected but no readings found'; }
+    }
+  }catch(e){
+    if(status){ status.style.color='var(--d)'; status.textContent='\u2717 Failed \u2014 check URL and token'; }
+  }
+}
+
+function saveSettingsFromOverlay(){
+  var getVal = function(id,fb){ return parseFloat((document.getElementById(id)||{}).value)||fb; };
+  var getStr = function(id,fb){ return ((document.getElementById(id)||{}).value||'').trim()||fb; };
+  S = {
+    icr:getVal('ov-icr',8), isf:getVal('ov-isf',27),
+    target:getVal('ov-target',100), ctarget:getVal('ov-ctarget',130),
+    dbasal:getVal('ov-dbasal',37), dbolus:getVal('ov-dbolus',27),
+    base:getVal('ov-base',9), max:getVal('ov-max',18), dia:4.5,
+    basalAM:getVal('ov-bam',21), basalAMt:getStr('ov-bam-t','05:30'),
+    basalPM:getVal('ov-bpm',16), basalPMt:getStr('ov-bpm-t','17:30'),
+    alertEmail:getStr('ov-email','arundayal@gmail.com'),
+    alertWhatsApp:getStr('ov-whatsapp',''),
+    learn:true,topup:true,split:true,pmm:true,lockout:true,walklearn:true,
+    emailjsService:'',emailjsTemplate:'',emailjsKey:''
+  };
+  ST.set('s',S);
+  var nsUrl = getStr('ov-ns-url','');
+  var nsToken = getStr('ov-ns-token','');
+  if(nsUrl){ localStorage.setItem('m4_nsurl',nsUrl.replace(/\/$/,'')); }
+  if(nsToken){ localStorage.setItem('m4_nstoken',nsToken); }
+  updateStats();
+  updateTresibaDisplay();
+  var saved = document.getElementById('ov-saved');
+  if(saved){ saved.style.display='block'; setTimeout(function(){ saved.style.display='none'; },2500); }
+  toast('\u2705 Settings saved!');
+  if(nsUrl){
+    fetchNS();
+    if(nsInterval) clearInterval(nsInterval);
+    nsInterval = setInterval(fetchNS, 5*60*1000);
+  }
+  setTimeout(closeSettings, 1800);
+}
+
+function testAlerts(){
+  toast('\uD83D\uDD14 Sending test alerts...');
+  setTimeout(function(){sendMissedDoseEmail('Morning (TEST)',21,8.5);},500);
+  setTimeout(function(){sendWhatsAppAlert('Morning (TEST)',21,8.5);},2000);
+}
+</script>
+
+<!-- SETTINGS OVERLAY MOVED TO BODY LEVEL -->
+<!-- ====== BOLUS ====== -->
+<div id="panel-bolus" class="panel active">
+  <div id="split-active" style="display:none"></div>
+
+  <div class="card">
+    <div class="ctitle">Meal Bolus Calculator</div>
+    <div class="row">
+      <div class="field"><label>Current BG (auto)</label><input type="number" id="bg" placeholder="e.g. 145" min="20" max="600"></div>
+      <div class="field"><label>CGM Trend (auto)</label>
+        <select id="trend">
+          <option value="0">→ Stable</option>
+          <option value="-2">⬇⬇ Rapidly Falling</option>
+          <option value="-1">↘ Slowly Falling</option>
+          <option value="1">↗ Slowly Rising</option>
+          <option value="2">⬆⬆ Rapidly Rising</option>
+        </select>
+      </div>
+    </div>
+    <div class="field row1" style="margin-bottom:7px">
+      <label>Search Food Database</label>
+      <input type="text" id="fsearch" placeholder="Type food name…" oninput="searchFood()" autocomplete="off">
+      <div id="fsugg" style="display:none;background:var(--s2);border:1px solid var(--b1);border-radius:8px;margin-top:3px;max-height:160px;overflow-y:auto;"></div>
+    </div>
+    <div id="sel-food-card" style="display:none;background:rgba(0,229,176,.05);border:1px solid rgba(0,229,176,.18);border-radius:8px;padding:9px 11px;margin-bottom:7px;font-size:11px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div id="sf-name" style="font-weight:700;font-size:13px;"></div>
+        <div id="sf-detail" style="font-family:var(--mono);color:var(--mu);font-size:9px;margin-top:2px;"></div>
+        <div id="sf-insight" style="margin-top:4px;"></div></div>
+        <button onclick="clearFood()" style="background:none;border:none;color:var(--mu);cursor:pointer;font-size:14px;">✕</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Carbs (g)</label><input type="number" id="carbs" placeholder="e.g. 60" min="0" max="500"></div>
+      <div class="field"><label>Fat + Protein (g)</label><input type="number" id="fp" placeholder="0" min="0" max="500"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Meal Type</label>
+        <select id="mtype">
+          <option value="normal">Normal / mixed</option>
+          <option value="small">Small / light</option>
+          <option value="large">Large / heavy</option>
+          <option value="high-gi">High GI (rice, bread, juice)</option>
+          <option value="low-gi">Low GI (legumes, oats)</option>
+          <option value="correction">Correction only</option>
+        </select>
+      </div>
+      <div class="field"><label>Injection Timing</label>
+        <select id="timing">
+          <option value="pre">Pre-meal 15 min ✓</option>
+          <option value="at">At meal</option>
+          <option value="post">Post-meal</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:7px">
+      <label style="display:block;margin-bottom:4px">Base Dose</label>
+      <div style="display:flex;align-items:center;background:var(--s2);border:1px solid var(--b1);border-radius:8px;overflow:hidden">
+        <button onclick="adj(-1)" style="width:38px;height:38px;background:none;border:none;color:var(--tx);font-size:17px;cursor:pointer">−</button>
+        <div style="flex:1;text-align:center;font-family:var(--mono);font-size:19px;font-weight:700;color:var(--g)" id="bdisplay">9 U</div>
+        <button onclick="adj(+1)" style="width:38px;height:38px;background:none;border:none;color:var(--tx);font-size:17px;cursor:pointer">+</button>
+      </div>
+      <input type="hidden" id="bval" value="9">
+    </div>
+  </div>
+
+  <button class="btn" onclick="calcBolus()">⚡ Calculate Adaptive Dose</button>
+
+  <div id="result-panel" style="display:none;margin-top:9px">
+    <div id="ai-box" class="ai-box load"><div class="dots"><span></span><span></span><span></span></div><span style="margin-left:6px">Generating advisory…</span></div>
+    <div class="result-hero">
+      <div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--mu);text-transform:uppercase;margin-bottom:2px">Recommended Dose</div>
+      <div class="result-dose" id="r-total">—</div>
+      <div class="result-sub" id="r-conf">Units NovoRapid</div>
+    </div>
+    <div class="breakdown">
+      <div class="bitem"><div class="bl">Meal Bolus</div><div class="bv" id="r-meal">—</div></div>
+      <div class="bitem"><div class="bl">BG Correction</div><div class="bv" id="r-corr">—</div></div>
+      <div class="bitem"><div class="bl">IOB Offset</div><div class="bv" id="r-iob">—</div></div>
+      <div class="bitem"><div class="bl">Pattern Adj</div><div class="bv pu" id="r-learn">—</div></div>
+    </div>
+    <div id="split-panel" style="display:none" class="split-visual">
+      <div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--pu);text-transform:uppercase;margin-bottom:4px">💜 Split / Multi-Dose Strategy</div>
+      <div id="split-reason" style="font-size:12px;color:var(--tx);opacity:.85;line-height:1.65;margin-bottom:10px;"></div>
+      <div class="split-timeline" id="split-timeline"></div>
+      <div id="split-detail-row" style="margin-top:10px;font-size:11px;color:var(--mu);font-family:var(--mono);line-height:1.7;"></div>
+      <button class="btn wa" style="margin-top:10px" onclick="startSplitTimer()">⏱ Start Split Timer</button>
+    </div>
+    <div id="balerts"></div>
+    <!-- FIX 2: Override before logging -->
+    <div style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);border-radius:10px;padding:12px;margin-bottom:9px">
+      <div style="font-family:var(--mono);font-size:8px;color:var(--pu);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">✏️ Override Dose (Optional)</div>
+      <div style="font-size:11px;color:var(--mu);margin-bottom:8px;line-height:1.6">App suggested: <strong style="color:var(--g)" id="suggested-dose-display">—</strong> U. Change below if you want a different dose. System will learn from your decision.</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="flex:1">
+          <label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Your Override Dose (U)</label>
+          <input type="number" id="override-dose-input" placeholder="Leave blank to use suggested" step=".5" min="0" style="margin-top:3px">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Reason (optional)</label>
+          <input type="text" id="override-reason" placeholder="e.g. BG low, small meal" style="margin-top:3px">
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--mu)">If your override gives a better outcome than suggested — system learns your judgement automatically.</div>
+    </div>
+
+    <div class="row" style="margin-top:4px">
+      <button class="btn" onclick="logDose()">✓ Log & Inject</button>
+      <button class="btn sec" onclick="addFoodDB()">+ Add to Food DB</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== FOOD PHOTO ====== -->
+<div id="panel-food" class="panel">
+  <!-- FOOD ENTRY TABS -->
+  <div class="card">
+    <div class="ctitle">Food Entry Method</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button id="ftab-healthify" onclick="switchFoodTab('healthify')" style="flex:1;padding:8px;background:var(--g);color:#001a10;border:none;border-radius:8px;font-family:var(--body);font-size:11px;font-weight:700;cursor:pointer">📱 Healthify Screenshot</button>
+      <button id="ftab-manual" onclick="switchFoodTab('manual')" style="flex:1;padding:8px;background:var(--s2);color:var(--mu);border:1px solid var(--b1);border-radius:8px;font-family:var(--body);font-size:11px;font-weight:700;cursor:pointer">✏️ Manual Entry</button>
+      <button id="ftab-photo" onclick="switchFoodTab('photo')" style="flex:1;padding:8px;background:var(--s2);color:var(--mu);border:1px solid var(--b1);border-radius:8px;font-family:var(--body);font-size:11px;font-weight:700;cursor:pointer">📷 Food Photo</button>
+    </div>
+
+    <!-- HEALTHIFY TAB -->
+    <div id="ftab-healthify-panel">
+      <p style="font-size:12px;color:var(--mu);line-height:1.65;margin-bottom:10px">
+        Take a screenshot from your <strong style="color:var(--tx)">Healthify app</strong> showing the nutrition breakdown. The AI will read the carbs, fat and protein values directly and calculate your dose.
+      </p>
+      <div style="background:rgba(0,229,176,.05);border:1px solid rgba(0,229,176,.18);border-radius:9px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--mu);line-height:1.7">
+        <strong style="color:var(--tx)">How to use:</strong><br>
+        1. Open Healthify → search your food → tap it<br>
+        2. Screenshot the nutrition page showing Carbs / Fat / Protein<br>
+        3. Upload that screenshot here<br>
+        4. AI reads the values and calculates your dose automatically
+      </div>
+      <div class="photo-drop" onclick="$('healthify-input').click()">
+        <img id="healthify-preview" class="photo-preview" alt="Healthify screenshot">
+        <div id="healthify-placeholder">
+          <div style="font-size:28px;margin-bottom:8px">📱</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--mu)">Tap to upload Healthify screenshot</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--mu2);margin-top:4px">Shows nutrition values clearly</div>
+        </div>
+        <input type="file" id="healthify-input" accept="image/*" onchange="loadHealthify(event)">
+      </div>
+      <div class="field row1" style="margin-bottom:7px">
+        <label>Food Name (helps AI)</label>
+        <input type="text" id="healthify-name" placeholder="e.g. Rice and dal, Roti sabzi">
+      </div>
+      <button class="btn" onclick="analyseHealthify()">🔍 Read Nutrition + Calculate Dose</button>
+      <div id="healthify-result" style="margin-top:10px;display:none">
+        <div id="healthify-ai-box" class="ai-box load"><div class="dots"><span></span><span></span><span></span></div><span style="margin-left:6px">Reading nutrition values…</span></div>
+        <div id="healthify-dose-panel" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- MANUAL ENTRY TAB -->
+    <div id="ftab-manual-panel" style="display:none">
+      <p style="font-size:12px;color:var(--mu);line-height:1.65;margin-bottom:10px">
+        Enter nutrition values manually. The split dose rule applies automatically: if fat+protein exceeds 25g, extra units are added as a split dose.
+      </p>
+
+      <!-- Split rule display -->
+      <div style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);border-radius:9px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-family:var(--mono);font-size:8px;color:var(--pu);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Auto Split Rule</div>
+        <div style="font-size:11px;color:var(--tx);line-height:1.7">
+          If fat + protein &gt; 25g:<br>
+          Extra units = (fat+protein − 25) ÷ 16<br>
+          These extra units go as <strong style="color:var(--pu)">split dose at +2 hours</strong>
+        </div>
+      </div>
+
+      <div class="field row1" style="margin-bottom:7px">
+        <label>Food Name</label>
+        <input type="text" id="manual-fname" placeholder="e.g. Rice + dal + sabzi">
+      </div>
+      <div class="row r3">
+        <div class="field">
+          <label>Carbs (g)</label>
+          <input type="number" id="manual-carbs" placeholder="e.g. 60" min="0" oninput="calcManualDose()">
+        </div>
+        <div class="field">
+          <label>Fat (g)</label>
+          <input type="number" id="manual-fat" placeholder="e.g. 8" min="0" oninput="calcManualDose()">
+        </div>
+        <div class="field">
+          <label>Protein (g)</label>
+          <input type="number" id="manual-protein" placeholder="e.g. 15" min="0" oninput="calcManualDose()">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>GI Type</label>
+          <select id="manual-gi" onchange="calcManualDose()">
+            <option value="medium">Medium GI</option>
+            <option value="high">High GI (rice, bread, juice)</option>
+            <option value="low">Low GI (dal, oats, legumes)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Portion</label>
+          <input type="text" id="manual-portion" placeholder="e.g. 1 plate">
+        </div>
+      </div>
+
+      <!-- Live dose calculation display -->
+      <div id="manual-dose-display" style="display:none;background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:12px;margin:8px 0">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div style="text-align:center">
+            <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-bottom:3px">MEAL BOLUS</div>
+            <div style="font-family:var(--cond);font-size:32px;font-weight:900;color:var(--g)" id="manual-meal-dose">—</div>
+            <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">U now</div>
+          </div>
+          <div style="text-align:center" id="manual-split-box">
+            <div style="font-family:var(--mono);font-size:8px;color:var(--pu);margin-bottom:3px">SPLIT +2HRS</div>
+            <div style="font-family:var(--cond);font-size:32px;font-weight:900;color:var(--pu)" id="manual-split-dose">0</div>
+            <div style="font-family:var(--mono);font-size:8px;color:var(--mu)">U at +2 hours</div>
+          </div>
+        </div>
+        <div id="manual-split-reason" style="font-size:10px;color:var(--pu);font-family:var(--mono);margin-bottom:8px"></div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--mu)" id="manual-dose-breakdown"></div>
+      </div>
+
+      <button class="btn" onclick="useManualDose()">✓ Use This Dose + Go to Bolus</button>
+    </div>
+
+    <!-- FOOD PHOTO TAB -->
+    <div id="ftab-photo-panel" style="display:none">
+      <p style="font-size:12px;color:var(--mu);line-height:1.65;margin-bottom:10px">
+        Upload a photo of your meal. Works best for clearly visible Indian food. Add a note to help AI identify correctly.
+      </p>
+      <div class="photo-drop" onclick="$('photo-input').click()">
+        <img id="photo-preview" class="photo-preview" alt="Food photo">
+        <div id="photo-placeholder">
+          <div style="font-size:32px;margin-bottom:8px">📷</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--mu)">Tap to upload food photo</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--mu2);margin-top:4px">JPG, PNG, HEIC supported</div>
+        </div>
+        <input type="file" id="photo-input" accept="image/*" onchange="loadPhoto(event)">
+      </div>
+      <div class="field row1" style="margin-bottom:7px">
+        <label>Meal Notes (helps AI identify food)</label>
+        <input type="text" id="photo-notes" placeholder="e.g. 3 roti, masoor dal, sabzi, curd">
+      </div>
+      <button class="btn" onclick="analysePhoto()">🔍 Analyse Food Photo</button>
+      <div id="photo-result" style="margin-top:10px;display:none">
+        <div id="photo-ai-box" class="ai-box load"><div class="dots"><span></span><span></span><span></span></div><span style="margin-left:6px">Identifying food…</span></div>
+        <div id="photo-dose-panel" style="display:none">
+          <div class="result-hero">
+            <div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--mu);text-transform:uppercase;margin-bottom:2px">Photo-Based Dose</div>
+            <div class="result-dose" id="photo-dose-val">—</div>
+            <div class="result-sub">Units NovoRapid</div>
+          </div>
+          <div id="photo-split-panel" style="display:none" class="split-visual">
+            <div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--pu);text-transform:uppercase;margin-bottom:4px">💜 Recommended Split</div>
+            <div class="split-timeline" id="photo-split-timeline"></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn" onclick="acceptPhotoDose()">✓ Use This Dose</button>
+            <button class="btn sec" onclick="overridePhotoDose()">✏️ Override Dose</button>
+          </div>
+          <div id="override-input" style="display:none;margin-top:8px">
+            <div class="field">
+              <label>Your Override Dose (U)</label>
+              <input type="number" id="override-val" placeholder="Enter your dose" step=".5" min="0">
+            </div>
+            <button class="btn sec" onclick="saveOverride()" style="margin-top:6px">Save Override — System Will Learn</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Add Food Manually</div>
+    <div class="row">
+      <div class="field"><label>Food Name</label><input type="text" id="fn-name" placeholder="e.g. Rice and dal"></div>
+      <div class="field"><label>Portion</label><input type="text" id="fn-portion" placeholder="1 plate / 200g"></div>
+    </div>
+    <div class="row r3">
+      <div class="field"><label>Carbs (g)</label><input type="number" id="fn-carbs" placeholder="0" min="0"></div>
+      <div class="field"><label>Fat (g)</label><input type="number" id="fn-fat" placeholder="0" min="0"></div>
+      <div class="field"><label>Protein (g)</label><input type="number" id="fn-protein" placeholder="0" min="0"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>GI</label><select id="fn-gi"><option value="high">High GI</option><option value="medium" selected>Medium GI</option><option value="low">Low GI</option></select></div>
+      <div class="field"><label>Typical Dose (U)</label><input type="number" id="fn-dose" placeholder="9" step=".5"></div>
+    </div>
+    <div class="row r1">
+      <div class="field"><label>Notes</label><textarea id="fn-notes" rows="2" placeholder="e.g. needs split bolus, spikes at 2hrs"></textarea></div>
+    </div>
+    <button class="btn sec" onclick="saveFood()" style="margin-top:6px">+ Save Food</button>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Food Database (<span id="fdcount">0</span>)</div>
+    <input type="text" id="ffilter" placeholder="🔍 Filter…" oninput="renderFoodDB()" style="margin-bottom:8px">
+    <div id="food-db-list"></div>
+  </div>
+</div>
+
+<!-- ====== TRESIBA ====== -->
+<div id="panel-tresiba" class="panel">
+  <div class="card">
+    <div class="ctitle">💊 Log Tresiba Injection</div>
+    <p style="font-size:12px;color:var(--mu);line-height:1.65;margin-bottom:10px">
+      Each injection is tracked using the pharmacokinetic model:<br>
+      <strong style="color:var(--tx)">Onset:</strong> +2 hours after injection<br>
+      <strong style="color:var(--tx)">Phase 1 (onset → +26h):</strong> 75% of dose ÷ 24 = U/hour<br>
+      <strong style="color:var(--tx)">Phase 2 (+26h → +38h):</strong> 25% of dose ÷ 12 = U/hour<br>
+      Multiple injections are stacked and summed every 15 minutes.
+    </p>
+    <div class="row">
+      <div class="field"><label>Dose (U)</label><input type="number" id="tr-dose" placeholder="e.g. 21" min="1" max="80" step=".5"></div>
+      <div class="field"><label>Injection Time</label><input type="time" id="tr-time"></div>
+    </div>
+    <button class="btn" onclick="logTresiba()">+ Log Tresiba Injection</button>
+  </div>
+  <div class="card">
+    <div class="ctitle">Active Tresiba Injections</div>
+    <div id="tresiba-list"><p style="font-size:12px;color:var(--mu);text-align:center;padding:12px 0">No Tresiba injections logged today.</p></div>
+    <div id="tresiba-flow-detail" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Basal Adequacy Test</div>
+    <div class="row r3">
+      <div class="field"><label>Fasting BG</label><input type="number" id="b-fasting" placeholder="e.g. 95"></div>
+      <div class="field"><label>Bedtime BG</label><input type="number" id="b-bedtime" placeholder="e.g. 110"></div>
+      <div class="field"><label>3 AM BG</label><input type="number" id="b-3am" placeholder="optional"></div>
+    </div>
+    <button class="btn sec" onclick="runBasalTest()">Analyse Basal Adequacy</button>
+    <div id="basal-result" style="margin-top:9px"></div>
+  </div>
+</div>
+
+<!-- ====== TOP-UP ====== -->
+<div id="panel-topup" class="panel">
+  <div class="card">
+    <div class="ctitle">🔺 Closed-Loop Top-Up Engine</div>
+    <p style="font-size:12px;color:var(--mu);line-height:1.65;margin-bottom:10px">
+      Correction Factor = <strong style="color:var(--tx)">1800 ÷ TDD</strong> = 1800 ÷ <span id="tdd-display">64</span> = <strong style="color:var(--g)" id="cf-detail">28.1</strong> mg/dL per unit.<br>
+      Correction is advised when BG is projected above <strong style="color:var(--tx)">200 mg/dL</strong> at 3.5 hours, and target is <strong style="color:var(--tx)">130 mg/dL</strong>.<br>
+      Top-up is blocked if IOB &gt; 3U.
+    </p>
+    <div id="topup-live-adv" style="margin-bottom:10px"><p style="font-size:12px;color:var(--mu);text-align:center;padding:12px 0">Connect Nightscout for live top-up advisory.</p></div>
+    <div class="card-title" style="font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:8px">Manual Check</div>
+    <div class="row r3">
+      <div class="field"><label>Current BG</label><input type="number" id="tu-bg" placeholder="auto-filled"></div>
+      <div class="field"><label>Hours Since Meal</label><input type="number" id="tu-hrs" placeholder="e.g. 2" step=".5"></div>
+      <div class="field"><label>Food eaten</label><input type="text" id="tu-food" placeholder="optional"></div>
+    </div>
+    <button class="btn" onclick="calcTopUp()">🔺 Calculate Top-Up / Correction</button>
+    <div id="tu-result" style="display:none;margin-top:9px">
+      <div class="result-hero">
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--mu);text-transform:uppercase;margin-bottom:2px">Correction Dose</div>
+        <div class="result-dose" id="tu-dose" style="color:var(--pu)">—</div>
+        <div class="result-sub" id="tu-reason"></div>
+      </div>
+      <div id="tu-alerts"></div>
+      <button class="btn sec" onclick="logTopUpDose()" style="margin-top:5px">✓ Log This Correction</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Correction History</div>
+    <div id="topup-history"><p style="font-size:12px;color:var(--mu);text-align:center;padding:12px 0">No corrections logged.</p></div>
+  </div>
+</div>
+
+<!-- ====== WALK ====== -->
+<div id="panel-walk" class="panel">
+  <div class="card">
+    <div class="ctitle">🚶 Log Walk / Exercise</div>
+    <p style="font-size:12px;color:var(--mu);line-height:1.65;margin-bottom:10px">
+      After each walk the system tracks your CGM response for 2 hours and learns how much your BG drops per minute of walking at different paces.
+    </p>
+    <div class="row">
+      <div class="field"><label>Activity Type</label>
+        <select id="ex-type">
+          <option value="walk-light">Light walk</option>
+          <option value="walk-moderate" selected>Brisk walk</option>
+          <option value="walk-fast">Fast walk</option>
+          <option value="jog">Jog / run</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Duration (minutes)</label><input type="number" id="ex-dur" placeholder="30" min="5" max="300"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>BG at start</label><input type="number" id="ex-bg-start" placeholder="auto-filled"></div>
+      <div class="field"><label>When (relative to meal)</label>
+        <select id="ex-timing">
+          <option value="fasted">Fasted / morning</option>
+          <option value="before">Before meal</option>
+          <option value="after1">1h after meal</option>
+          <option value="after2">2h after meal</option>
+          <option value="anytime">Other</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" onclick="logWalk()">+ Log Walk</button>
+  </div>
+  <div class="card">
+    <div class="ctitle">🧠 What the System Has Learned About Your Walks</div>
+    <div id="walk-learning-panel"><p style="font-size:12px;color:var(--mu);text-align:center;padding:12px 0">Log at least 3 walks to see learned patterns.</p></div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Walk Log</div>
+    <div id="walk-log-list"><p style="font-size:12px;color:var(--mu);text-align:center;padding:12px 0">No walks logged.</p></div>
+  </div>
+</div>
+
+<!-- ====== TIR ====== -->
+<div id="panel-tir" class="panel">
+  <div class="card">
+    <div class="ctitle">Time in Range — Last 7 Days</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+      <canvas id="tir-canvas" width="110" height="110"></canvas>
+      <div>
+        <div style="font-family:var(--cond);font-size:52px;font-weight:900;color:var(--g);letter-spacing:2px;line-height:1" id="tir-pct">—</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--mu)">Time in Range<br>Target: 70–180 mg/dL</div>
+      </div>
+    </div>
+    <div style="height:12px;background:var(--s2);border-radius:6px;overflow:hidden;display:flex;margin-bottom:4px" id="tir-bar"></div>
+    <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:8px;color:var(--mu)"><span>Very High</span><span>High</span><span>In Range</span><span>Low</span><span>Very Low</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:7px;margin-bottom:9px">
+    <div class="stat"><div class="sl">Avg BG</div><div class="sv" id="tir-avg" style="color:var(--g)">—</div></div>
+    <div class="stat"><div class="sl">% High</div><div class="sv" id="tir-hi" style="color:var(--d)">—</div></div>
+    <div class="stat"><div class="sl">% Low</div><div class="sv" id="tir-lo" style="color:var(--lo)">—</div></div>
+    <div class="stat"><div class="sl">Readings</div><div class="sv" id="tir-n" style="color:var(--mu)">—</div></div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Daily Breakdown</div>
+    <div id="tir-days"></div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Log Manual BG</div>
+    <div class="row">
+      <div class="field"><label>BG (mg/dL)</label><input type="number" id="mbg" placeholder="e.g. 145" min="20" max="600"></div>
+      <div class="field"><label>Context</label><select id="mbg-ctx"><option value="fasting">Fasting</option><option value="post2h">2h post-meal</option><option value="bedtime">Bedtime</option><option value="3am">3 AM</option><option value="random">Random</option></select></div>
+    </div>
+    <button class="btn sec" onclick="logManualBG()" style="margin-top:5px">+ Log Reading</button>
+  </div>
+</div>
+
+<!-- ====== LOG ====== -->
+<div id="panel-log" class="panel">
+  <div class="card">
+    <div class="ctitle">Dose Log</div>
+    <div id="dose-log-list"><p style="color:var(--mu);font-size:12px;text-align:center;padding:20px 0">No doses logged yet.</p></div>
+  </div>
+</div>
+
+<!-- ====== LEARN ====== -->
+<div id="panel-learn" class="panel">
+  <div class="card">
+    <div class="ctitle">🧠 Algorithm Learning State</div>
+    <div id="pattern-list"></div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Post-Meal Response Library</div>
+    <p style="font-size:12px;color:var(--mu);margin-bottom:10px">For each food, the system tracks how your BG responds at 1h, 2h, and 3h post-meal and adjusts future doses accordingly.</p>
+    <div id="pmeal-library"></div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Algorithm Statistics</div>
+    <div class="breakdown">
+      <div class="bitem"><div class="bl">Total Doses</div><div class="bv" id="st-doses">0</div></div>
+      <div class="bitem"><div class="bl">Rated</div><div class="bv" id="st-rated">0</div></div>
+      <div class="bitem"><div class="bl">Good %</div><div class="bv" id="st-acc" style="color:var(--g)">—</div></div>
+      <div class="bitem"><div class="bl">Foods Learned</div><div class="bv" id="st-foods">0</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ctitle">AI Deep Analysis</div>
+    <button class="btn pu" onclick="getDeepAnalysis()">🧠 Full Algorithm Analysis</button>
+    <div id="deep-ai" class="ai-box" style="margin-top:9px;display:none"></div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Reset</div>
+    <button class="btn da" onclick="resetAll()">Reset All Learning Data</button>
+  </div>
+</div>
+
+<!-- ====== SETTINGS ====== -->
+<div id="panel-settings" class="panel">
+  <div class="card">
+    <div class="ctitle">Insulin Parameters</div>
+    <div class="row">
+      <div class="field"><label>ICR (g carbs / U)</label><input type="number" id="s-icr" min="3" max="30" step="1"></div>
+      <div class="field"><label>ISF (mg/dL / U)</label><input type="number" id="s-isf" min="10" max="120" step="1"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Target BG (mg/dL)</label><input type="number" id="s-target" min="70" max="160" step="5"></div>
+      <div class="field"><label>Correction Target (mg/dL)</label><input type="number" id="s-ctarget" min="100" max="180" step="5" placeholder="130"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Base Bolus / Meal (U)</label><input type="number" id="s-base" min="1" max="30" step=".5"></div>
+      <div class="field"><label>Max Single Bolus (U)</label><input type="number" id="s-max" min="4" max="40" step="1"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Daily Basal Total (U)</label><input type="number" id="s-dbasal" min="5" max="120" step=".5" placeholder="37"></div>
+      <div class="field"><label>Daily Bolus Total (U)</label><input type="number" id="s-dbolus" min="5" max="120" step=".5" placeholder="27"></div>
+    </div>
+    <div style="background:rgba(0,229,176,.06);border:1px solid rgba(0,229,176,.2);border-radius:9px;padding:10px 12px;margin-top:6px;font-family:var(--mono);font-size:11px;color:var(--tx)">
+      TDD = <span id="tdd-calc">64</span>U &nbsp;·&nbsp; CF = 1800 ÷ <span id="tdd-calc2">64</span> = <strong style="color:var(--g)" id="cf-calc">28.1</strong> mg/dL/U
+    </div>
+
+    <div class="ctitle" style="margin-top:14px">Tresiba Schedule</div>
+    <div class="row">
+      <div class="field"><label>Morning Dose (U)</label><input type="number" id="s-bam" min="1" max="80" step=".5"></div>
+      <div class="field"><label>Morning Time</label><input type="time" id="s-bam-t"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Evening Dose (U)</label><input type="number" id="s-bpm" min="1" max="80" step=".5"></div>
+      <div class="field"><label>Evening Time</label><input type="time" id="s-bpm-t"></div>
+    </div>
+
+    <div class="ctitle" style="margin-top:14px">Algorithm Controls</div>
+    <div class="tog-row"><div><div class="tog-lbl">Adaptive Learning</div><div class="tog-sub">Apply food patterns to doses</div></div><label class="tog"><input type="checkbox" id="s-learn" checked><span class="tsl"></span></label></div>
+    <div class="tog-row"><div><div class="tog-lbl">Auto Top-Up Advisory</div><div class="tog-sub">Alert when CGM shows uncontrolled rise</div></div><label class="tog"><input type="checkbox" id="s-topup" checked><span class="tsl"></span></label></div>
+    <div class="tog-row"><div><div class="tog-lbl">Split Bolus Suggestions</div><div class="tog-sub">75/25 split for high-fat / high-GI meals</div></div><label class="tog"><input type="checkbox" id="s-split" checked><span class="tsl"></span></label></div>
+    <div class="tog-row"><div><div class="tog-lbl">Post-Meal CGM Monitoring</div><div class="tog-sub">Track BG at 1h/2h/3h after each meal</div></div><label class="tog"><input type="checkbox" id="s-pmm" checked><span class="tsl"></span></label></div>
+    <div class="tog-row"><div><div class="tog-lbl">Hypo Lock-out</div><div class="tog-sub">Block dose if BG &lt; 70</div></div><label class="tog"><input type="checkbox" id="s-lockout" checked><span class="tsl"></span></label></div>
+    <div class="tog-row"><div><div class="tog-lbl">Walk Learning</div><div class="tog-sub">Track CGM response after walks</div></div><label class="tog"><input type="checkbox" id="s-walklearn" checked><span class="tsl"></span></label></div>
+
+    <div class="ctitle" style="margin-top:14px">📧 Alert Settings (Email + WhatsApp)</div>
+    <div style="background:rgba(255,71,87,.05);border:1px solid rgba(255,71,87,.15);border-radius:9px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--mu);line-height:1.7">
+      Alerts are sent when Tresiba is missed by 8+ hours, BG &lt;70 for 15min, or BG &gt;300.
+    </div>
+    <div class="row">
+      <div class="field"><label>Alert Email</label><input type="text" id="s-email" placeholder="arundayal@gmail.com"></div>
+      <div class="field"><label>WhatsApp Number (with country code)</label><input type="text" id="s-whatsapp" placeholder="e.g. 919876543210"></div>
+    </div>
+    <div style="background:rgba(0,229,176,.05);border:1px solid rgba(0,229,176,.15);border-radius:9px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-family:var(--mono);font-size:8px;color:var(--g);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">EmailJS Setup (for background email — optional)</div>
+      <div class="row r3">
+        <div class="field"><label>Service ID</label><input type="text" id="s-ejsservice" placeholder="service_xxx"></div>
+        <div class="field"><label>Template ID</label><input type="text" id="s-ejstemplate" placeholder="template_xxx"></div>
+        <div class="field"><label>Public Key</label><input type="text" id="s-ejskey" placeholder="your_key"></div>
+      </div>
+      <div style="font-size:10px;color:var(--mu);font-family:var(--mono)">Get free keys at emailjs.com — signup with arundayal@gmail.com</div>
+    </div>
+    <button class="btn sec" onclick="testAlerts()" style="margin-top:4px">🔔 Test Alert (sends test email + WhatsApp)</button>
+
+    <div class="ctitle" style="margin-top:14px">Nightscout CGM</div>
+    <div class="field row1" style="margin-bottom:7px"><label>Nightscout URL</label><input type="text" id="ns-url" placeholder="https://yoursite.code.run"></div>
+    <div class="field row1" style="margin-bottom:7px"><label>API Token</label><input type="text" id="ns-token" placeholder="e.g. libre-dcf6acca49bf4069"></div>
+    <button class="btn" onclick="connectNS()">🔗 Connect Nightscout</button>
+
+    <div style="height:1px;background:var(--b1);margin:14px 0"></div>
+    <button class="btn" onclick="saveSettings()">Save All Settings</button>
+    <p id="setsaved">✓ Settings saved</p>
+  </div>
+</div>
+
+
+<!-- SETTINGS OVERLAY -->
+<div id="settings-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:99999;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 12px 80px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:2;border-bottom:1px solid var(--b1)">
+    <div style="font-family:var(--cond);font-size:22px;font-weight:900;color:var(--g)">⚙️ SETTINGS</div>
+    <button onclick="closeSettings()" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer">✕ Close</button>
+  </div>
+
+  <!-- NIGHTSCOUT FIRST - most important -->
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px 16px;margin-bottom:10px">
+    <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--g);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:7px"><span style="width:3px;height:9px;background:var(--g);border-radius:2px;display:inline-block"></span>🩸 Nightscout CGM Connection</div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Nightscout URL</label>
+      <input type="text" id="ov-ns-url" placeholder="https://yoursite.code.run" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:13px;padding:8px 10px;width:100%;margin-top:4px">
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:9px;color:var(--mu);font-family:var(--mono)">API Token</label>
+      <input type="text" id="ov-ns-token" placeholder="e.g. libre-dcf6acca49bf4069" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:13px;padding:8px 10px;width:100%;margin-top:4px">
+    </div>
+    <button onclick="connectNSFromOverlay()" style="width:100%;padding:11px;background:linear-gradient(135deg,var(--g),var(--g2));border:none;border-radius:12px;color:#001a10;font-family:var(--body);font-size:13px;font-weight:700;cursor:pointer">🔗 Connect Nightscout</button>
+    <div id="ov-ns-status" style="font-family:var(--mono);font-size:10px;color:var(--mu);text-align:center;margin-top:8px"></div>
+  </div>
+
+  <!-- INSULIN PARAMETERS -->
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px 16px;margin-bottom:10px">
+    <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--g);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:7px"><span style="width:3px;height:9px;background:var(--g);border-radius:2px;display:inline-block"></span>Insulin Parameters</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">ICR (g carbs/U)</label><input type="number" id="ov-icr" value="8" min="3" max="30" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px"></div>
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">ISF (mg/dL/U)</label><input type="number" id="ov-isf" value="27" min="10" max="120" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Target BG (mg/dL)</label><input type="number" id="ov-target" value="100" min="70" max="160" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px"></div>
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Correction Target</label><input type="number" id="ov-ctarget" value="130" min="100" max="180" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Daily Basal Total (U)</label><input type="number" id="ov-dbasal" value="37" min="5" max="120" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px" oninput="updateOvTDD()"></div>
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Daily Bolus Total (U)</label><input type="number" id="ov-dbolus" value="27" min="5" max="120" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px" oninput="updateOvTDD()"></div>
+    </div>
+    <div id="ov-tdd-display" style="background:rgba(0,229,176,.06);border:1px solid rgba(0,229,176,.2);border-radius:9px;padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--tx);margin-bottom:8px">
+      TDD = 64U · CF = 1800 ÷ 64 = <strong style="color:var(--g)">28.1</strong> mg/dL/U
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Base Bolus/Meal (U)</label><input type="number" id="ov-base" value="9" min="1" max="30" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px"></div>
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Max Single Bolus (U)</label><input type="number" id="ov-max" value="18" min="4" max="40" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px"></div>
+    </div>
+  </div>
+
+  <!-- TRESIBA SCHEDULE -->
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px 16px;margin-bottom:10px">
+    <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--g);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:7px"><span style="width:3px;height:9px;background:var(--g);border-radius:2px;display:inline-block"></span>💊 Tresiba Schedule</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Morning Dose (U)</label><input type="number" id="ov-bam" value="21" min="1" max="80" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px"></div>
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Morning Time</label><input type="time" id="ov-bam-t" value="05:30" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Evening Dose (U)</label><input type="number" id="ov-bpm" value="16" min="1" max="80" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px"></div>
+      <div><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Evening Time</label><input type="time" id="ov-bpm-t" value="17:30" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:14px;padding:8px 10px;width:100%;margin-top:4px"></div>
+    </div>
+  </div>
+
+  <!-- ALERT SETTINGS -->
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px 16px;margin-bottom:10px">
+    <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--g);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:7px"><span style="width:3px;height:9px;background:var(--g);border-radius:2px;display:inline-block"></span>📧 Alert Settings</div>
+    <div style="margin-bottom:8px"><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">Alert Email</label><input type="text" id="ov-email" value="arundayal@gmail.com" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:13px;padding:8px 10px;width:100%;margin-top:4px"></div>
+    <div style="margin-bottom:8px"><label style="font-size:9px;color:var(--mu);font-family:var(--mono)">WhatsApp Number (with country code e.g. 919876543210)</label><input type="text" id="ov-whatsapp" placeholder="919XXXXXXXXXX" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--tx);font-family:var(--mono);font-size:13px;padding:8px 10px;width:100%;margin-top:4px"></div>
+  </div>
+
+  <!-- SAVE BUTTON -->
+  <button onclick="saveSettingsFromOverlay()" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--g),var(--g2));border:none;border-radius:12px;color:#001a10;font-family:var(--body);font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px">✅ Save All Settings</button>
+  <div id="ov-saved" style="text-align:center;color:var(--g);font-family:var(--mono);font-size:11px;display:none">✓ Settings saved successfully!</div>
+</div>
+
+<!-- CGM HERO -->
+<div class="cgm-hero">
+  <div class="cgm-row">
+    <div>
+      <div class="cgm-val ok" id="cgm-val">---</div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--mu);margin-top:2px" id="cgm-meta">Waiting for CGM…</div>
+    </div>
+    <div class="cgm-right">
+      <div class="cgm-arrow" id="cgm-arrow">→</div>
+      <div class="cgm-roc" id="cgm-roc" style="color:var(--g)">+0.0</div>
+      <div class="cgm-age">mg/dL/min</div>
+    </div>
+  </div>
+  <canvas id="spark" height="56"></canvas>
+  <div style="font-family:var(--mono);font-size:8px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 5px">Predicted Glucose</div>
+  <div class="pred-row">
+    <div class="pred-chip"><div class="pred-t">15m</div><div class="pred-v ok" id="p15">—</div></div>
+    <div class="pred-chip"><div class="pred-t">30m</div><div class="pred-v ok" id="p30">—</div></div>
+    <div class="pred-chip"><div class="pred-t">45m</div><div class="pred-v ok" id="p45">—</div></div>
+    <div class="pred-chip"><div class="pred-t">60m</div><div class="pred-v ok" id="p60">—</div></div>
+    <div class="pred-chip"><div class="pred-t">90m</div><div class="pred-v ok" id="p90">—</div></div>
+    <div class="pred-chip"><div class="pred-t">2hr</div><div class="pred-v ok" id="p120">—</div></div>
+  </div>
+</div>
+
+<!-- LIVE ADVISORY BANNER -->
+<div id="live-adv"></div>
+
+<!-- POST MEAL MONITOR -->
+<div id="pmm-active" style="display:none" class="card">
+  <div class="ctitle">Post-Meal CGM Monitor Active <div class="pmm-badge"><div class="pmm-dot"></div><span id="pmm-food-name">Food</span></div></div>
+  <div id="pmm-readings"></div>
+  <div id="pmm-analysis" style="margin-top:8px;font-size:12px;color:var(--mu);font-family:var(--mono);"></div>
+</div>
+
+<!-- INSULIN FLOW PANEL -->
+<div class="insulin-flow">
+  <div class="iflow-card">
+    <div class="iflow-title">Tresiba Basal Flow</div>
+    <div class="iflow-rate" id="tresiba-rate" style="color:var(--g)">0.00</div>
+    <div class="iflow-label">U/hour active basal</div>
+    <div class="iflow-bar"><div class="iflow-fill" id="tresiba-bar" style="width:0%;background:var(--g)"></div></div>
+    <div class="dose-stack" id="tresiba-stack"></div>
+    <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-top:6px" id="tresiba-remain"></div>
+  </div>
+  <div class="iflow-card">
+    <div class="iflow-title">Bolus IOB Stack</div>
+    <div class="iflow-rate" id="bolus-iob" style="color:var(--pu)">0.00</div>
+    <div class="iflow-label">U active bolus insulin</div>
+    <div class="iob-stacks" id="bolus-stacks"></div>
+    <div style="font-family:var(--mono);font-size:8px;color:var(--mu);margin-top:6px" id="bolus-next5"></div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-row">
+  <div class="stat"><div class="sl">Total IOB</div><div class="sv" id="total-iob" style="color:var(--pu)">0.0U</div></div>
+  <div class="stat"><div class="sl">TIR Today</div><div class="sv" id="tir-today" style="color:var(--g)">—</div></div>
+  <div class="stat"><div class="sl">CF (1800÷TDD)</div><div class="sv" id="cf-display" style="color:var(--w)">28</div></div>
+  <div class="stat"><div class="sl">Avg BG 7d</div><div class="sv" id="avg7d" style="color:var(--tx)">—</div></div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <button class="tab active" onclick="goTab('bolus',this)">⚡ Bolus</button>
+  <button class="tab" onclick="goTab('food',this)">📸 Food</button>
+  <button class="tab" onclick="goTab('tresiba',this)">💊 Tresiba</button>
+  <button class="tab" onclick="goTab('topup',this)">🔺 Top-Up</button>
+  <button class="tab" onclick="goTab('walk',this)">🚶 Walk</button>
+  <button class="tab" onclick="goTab('tir',this)">📊 TIR</button>
+  <button class="tab" onclick="goTab('log',this)">📋 Log</button>
+  <button class="tab" onclick="goTab('learn',this)">🧠 Learn</button>
+  <button class="tab" onclick="goTab('settings',this)">⚙️</button>
+</div>
+
+</body>
+</html>
